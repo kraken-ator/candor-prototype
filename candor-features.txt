@@ -1,0 +1,384 @@
+CANDOR — FEATURE OVERVIEW
+=========================
+
+Candor is a transparency layer for Claude chat that helps users evaluate AI
+responses by surfacing reasoning structure, assumptions, and uncertainty. It
+does not assign trust scores, percentages, or “how much to believe” the answer.
+It is designed to support judgment, not replace it.
+
+This document describes the features implemented in the Candor prototype
+(candor-prototype.html), including desktop and mobile demonstration modes.
+
+
+1. CORE PURPOSE
+---------------
+
+Candor makes the invisible parts of an AI answer visible:
+
+- How the model approached the question
+- What it assumed without being told
+- Which sentences rest on strong vs. weak grounding
+- What was left out of the answer
+- What could change the recommendation
+- Questions the user should ask themselves
+
+Candor is optional: users can turn it on or off. When off, the conversation
+reads like a normal Claude reply without highlights or side panel.
+
+
+2. CONFIDENCE LABELS (SENTENCE-LEVEL)
+-------------------------------------
+
+Every inspectable sentence in a response can carry one of three labels:
+
+  Supported
+    Directly grounded in the user’s prompt or widely accepted patterns.
+
+  Inferred
+    A reasonable conclusion from available context, not explicitly stated.
+
+  Assumed
+    Depends on information the user did not provide.
+
+Visual encoding (consistent across UI):
+
+  - Supported: green dot / green label text
+  - Inferred: amber dot / amber label text
+  - Assumed: red-brown dot / warm label text
+
+Sentences with Candor enabled show a dotted underline. Users inspect them to
+see why that label was applied.
+
+There are no percentage confidence scores and no aggregate “trust meters.”
+
+
+3. SENTENCE INSPECTION
+----------------------
+
+When Candor is active, key sentences in Claude’s reply become inspectable.
+
+Desktop:
+  - Hover (or keyboard focus) opens a tooltip/card near the sentence.
+  - Moving away closes the tooltip.
+  - Only one sentence tooltip is open at a time.
+
+Mobile (demo mode):
+  - Tap a highlighted sentence to open a floating confidence card.
+  - Tap outside or scroll the conversation to close.
+  - Only one card open at a time.
+
+Each inspection card shows:
+
+  1. Confidence label (Supported / Inferred / Assumed)
+  2. Short definition of that label
+  3. “Why this label” — explanation tied to that specific sentence
+
+A legend above the reply (“Inspect this answer”) lists the three labels and
+reminds users how to interact (hover on desktop, tap on mobile).
+
+
+4. CANDOR PANEL / SHEET (SIDE CONTENT)
+--------------------------------------
+
+When Candor is on, structured metadata appears beside or below the conversation.
+
+Desktop:
+  - Right-hand Candor column (~380px, up to 400px on wide screens).
+  - Scrolls independently from the main chat.
+  - Toggled with the Candor switch in the header.
+  - Animates open/closed (width + opacity).
+
+Panel header:
+  - Title: “Candor”
+  - Subtitle: “Helping you evaluate this response”
+
+Panel sections (same content model on all form factors):
+
+  4.1 How I Approached This
+      Bullet list describing the reasoning strategy used for this answer.
+
+  4.2 Assumptions I Made
+      Expandable assumption cards (see Section 5).
+
+  4.3 What Could Change This Answer?
+      Tappable chips/cards (e.g. Company Quality, Mentorship, Compensation).
+      Expanding one shows a written explanation of how that factor could flip
+      the recommendation.
+
+  4.4 What I Didn't Cover
+      Bullet list of important gaps the answer did not address.
+
+  4.5 Ask Yourself
+      Reflection prompts. On mobile demo, each prompt expands to show:
+        - Why the question matters
+        - How different answers would affect the recommendation
+
+  4.6 Confidence calibration (reflection feedback)
+      Question: “Did this change your confidence in the answer?”
+      Options: More confident / Less confident / No change
+      Selecting an option shows a brief thank-you message.
+      (UI-only in prototype; no analytics backend.)
+
+
+5. ASSUMPTION CARDS
+-------------------
+
+Assumptions are the core of Candor’s transparency.
+
+Collapsed state shows:
+  - Confidence dot and label (Supported / Inferred / Assumed)
+  - Assumption title (short)
+
+Expanded state shows:
+  - Assumption — fuller description of what was taken for granted
+  - Why it matters — impact on the reasoning
+  - How it influenced the answer — what the model did differently because of it
+  - What changes if the assumption is wrong — how the recommendation could flip
+
+Behavior:
+  - Only one assumption card expanded at a time (accordion).
+  - Smooth height animation on expand/collapse (desktop and mobile).
+
+
+6. FIRST-TIME INTRODUCTION
+--------------------------
+
+The first time Candor is enabled for a given scenario (per device path), an
+inline card appears above the reply:
+
+  Title: What is Candor?
+
+  Copy: Candor helps you evaluate AI outputs by surfacing assumptions,
+        uncertainty, and reasoning structure. It does not tell you what to
+        trust.
+
+  Actions: Dismiss (X) or “Got it”
+
+After dismissal, the intro does not show again for that scenario until the
+demo is reset (prototype stores per-scenario “intro seen” state).
+
+
+7. CANDOR TOGGLE
+----------------
+
+Header control: pill-shaped switch labeled “Candor” with accent dot and track.
+
+  - On: accent border/background; panel or sheet available; inspectable
+    sentences active.
+  - Off: standard Claude reply only; no highlights, no side panel.
+
+Desktop: toggles the right Candor column.
+
+Mobile demo: opens inspection mode and/or the bottom sheet (see Section 9).
+
+
+8. SCENARIO SWITCHER
+--------------------
+
+The prototype includes three demo conversations. Each has its own user prompt,
+Claude response, inspectable sentences, assumptions, and Candor panel content.
+
+  1. Career decision
+     Startup vs. consulting internship for a future product management path.
+
+  2. Financial analysis
+     95% Value at Risk for a mixed equity/bond portfolio.
+
+  3. Resume review
+     Feedback on a resume targeting a first product manager role.
+
+Switching scenarios (desktop header dropdown or mobile scenario chips):
+  - Updates the user message and full assistant reply
+  - Updates all Candor panel content and assumption cards
+  - Resets expanded cards/chips for the new scenario
+  - Preserves device mode (Desktop vs. Mobile demo)
+
+Scenario menu shows full title and a preview of the user prompt.
+
+
+9. DEVICE DEMO SWITCHER (PROTOTYPE ONLY)
+----------------------------------------
+
+For evaluators: switch between Desktop and Mobile experiences without resizing
+the browser.
+
+Control:
+  - Claude-style pill dropdown near Share and Candor (desktop)
+  - Fixed top-right when Mobile demo is active (outside the phone frame)
+
+Options:
+  - Desktop — full approved desktop layout
+  - Mobile — 390px phone frame, centered on screen
+
+This is state-driven (deviceMode), not CSS breakpoint-driven, so desktop layout
+stays stable on narrow windows when Desktop is selected.
+
+
+10. DESKTOP EXPERIENCE
+----------------------
+
+Layout:
+  - Left: Claude sidebar (navigation, recents, profile)
+  - Center: Conversation + fixed message composer
+  - Right: Candor panel (when on)
+
+Sidebar:
+  - Collapse/expand via panel icon next to Search (not hamburger in header)
+  - When collapsed, panel icon in chat header restores sidebar
+
+Chat:
+  - User bubble (right-aligned)
+  - Candor intro (first time)
+  - Confidence legend (when Candor on)
+  - Structured assistant reply with headings and inspectable sentences
+  - Scrollable conversation; composer pinned to bottom
+
+Candor panel:
+  - Independently scrollable
+  - Sections expanded by default on desktop (not collapsed accordion)
+  - Reflection feedback at bottom of panel
+
+Interactions:
+  - Hover to inspect sentences
+  - Click assumption cards to expand one at a time
+  - Click “could change” chips to show detail card
+
+
+11. MOBILE DEMO EXPERIENCE
+--------------------------
+
+Rendered inside a ~390px phone frame with rounded corners and safe-area padding.
+Hides desktop sidebar and desktop Candor column.
+
+Header:
+  - Hamburger menu (opens in-device nav drawer with sidebar content)
+  - “Claude” wordmark
+  - Profile icon
+
+Optional Pro upgrade banner (demonstration).
+
+Conversation:
+  - Full-width reading area
+  - Scenario chips for quick scenario switch
+  - Same reply content as desktop, tuned for narrower typography
+  - “Inspect with Candor” pill below the response (primary entry point)
+
+Composer:
+  - Mobile-style rounded composer
+  - Placeholder: “Chat with Claude”
+  - Attachment (+), model selector (Sonnet 4.6 Max), mic, audio buttons
+  - (Non-functional in prototype; visual only)
+
+Candor bottom sheet:
+  - Native-style sheet with drag handle and rounded top corners
+  - States: closed, collapsed (peek), half-expanded, full-expanded
+  - Cycle states via drag handle tap (prototype)
+  - Backdrop tap closes sheet
+  - All Candor sections collapsed by default; one section open at a time
+  - Assumption accordions: one open at a time
+  - Could-change and Ask-yourself: tap card to expand explanation
+  - Reflection feedback at bottom of sheet
+
+Sentence inspection:
+  - Tap highlighted sentence when inspection mode is on
+  - Floating confidence card (viewport-fixed, avoids clipping)
+  - Tap outside to dismiss
+
+
+12. CLAUDE CHROME (CONTEXT)
+---------------------------
+
+The prototype situates Candor inside a Claude-like shell (not part of Candor
+itself, but present in the demo):
+
+  - Sidebar navigation and recents list
+  - Scenario title in header
+  - Free plan / Upgrade banner (desktop)
+  - Share button
+  - Message input with model picker and voice/audio affordances
+  - Disclaimer: “Claude is AI and can make mistakes…”
+
+Candor-specific additions are: toggle, panel/sheet, inspectable text, intro,
+legend, and “Inspect with Candor” on mobile.
+
+
+13. ANIMATIONS & MOTION
+-----------------------
+
+Motion is subtle and Claude-like (roughly 150–250ms):
+
+  - Candor panel width open/close
+  - Bottom sheet slide and height changes
+  - Section and assumption expand/collapse (grid height transitions)
+  - Tooltip/card fade and slight vertical shift
+  - Intro and legend fade-in
+
+No bounce, trust-score animations, or flashy transitions.
+
+
+14. DATA MODEL (SHARED)
+-----------------------
+
+All UI reuses a single scenarios object per topic:
+
+  - userPrompt
+  - approach[] — how I approached this
+  - assumptions[] — id, level, title, detail, whyMatters, influencedAnswer, ifWrong
+  - notCovered[]
+  - askYourself[] / askCards[] (prompt + whyMatters + howAffects)
+  - couldChange[] — id, title, explanation
+  - inspectable[] — level + explanation per highlight
+
+No duplicate copy between desktop and mobile; only presentation differs.
+
+
+15. URL PARAMETERS (PROTOTYPE)
+------------------------------
+
+Optional query flags for demos:
+
+  ?candor=0          Candor off on load (desktop)
+  ?sheet=1           Open sheet on load (legacy breakpoint path)
+  ?scenario=finance  Load financial analysis scenario
+  ?scenario=resume   Load resume review scenario
+  ?device=mobile     Start in mobile demo mode
+
+
+16. ACCESSIBILITY NOTES (PROTOTYPE LEVEL)
+-----------------------------------------
+
+  - Inspectable spans are focusable (tabindex) on desktop
+  - Tooltips use role="tooltip" / dialog patterns where applicable
+  - aria-expanded on assumption and section buttons
+  - aria-pressed on Candor toggle
+
+Full WCAG compliance is not claimed for this prototype.
+
+
+17. EXPLICIT NON-FEATURES
+-------------------------
+
+Candor deliberately does NOT include:
+
+  - Percentage confidence or numeric trust scores
+  - “Safe to use” / “unsafe” verdicts
+  - Source citations or live fact-checking
+  - Persistence across sessions (beyond in-memory prototype state)
+  - Real API integration with Claude (static demo content)
+  - User account settings for Candor defaults
+
+
+18. SUCCESS CRITERIA (PRODUCT INTENT)
+-------------------------------------
+
+  - Desktop: evaluators see full reasoning transparency without leaving the chat
+  - Mobile: evaluators see Candor as a bottom sheet + tap-to-inspect flow
+  - Users understand Supported vs. Inferred vs. Assumed at sentence level
+  - Users can challenge assumptions before acting on the answer
+  - The feature feels like something Anthropic could ship alongside Claude,
+    not a separate auditing tool
+
+---
+
+Document version: matches candor-prototype.html prototype implementation.
+Last updated: June 2026

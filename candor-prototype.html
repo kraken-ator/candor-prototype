@@ -1,0 +1,2058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude · Candor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-app: #262624;
+      --bg-panel: #1f1e1d;
+      --bg-elevated: #2a2927;
+      --bg-chip: #232220;
+      --border: #2f2e2c;
+      --border-strong: #3a3835;
+      --text: #e8e6e1;
+      --text-muted: #c8c6c0;
+      --text-dim: #a3a09a;
+      --text-faint: #8a8780;
+      --accent: #c89a6a;
+      --accent-text: #d6bd8f;
+      --supported-dot: #7a9b82;
+      --supported-text: #a9c4af;
+      --inferred-dot: #c4a06a;
+      --inferred-text: #d6bd8f;
+      --assumed-dot: #b58078;
+      --assumed-text: #cda49d;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --sidebar-w: 260px;
+      --candor-w: 380px;
+      --font: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-font-smoothing: antialiased; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-app);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+    * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+    *::-webkit-scrollbar { width: 6px; height: 6px; }
+    *::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .scroll-container::-webkit-scrollbar-thumb { background: transparent; }
+    .scroll-container:hover::-webkit-scrollbar-thumb { background: var(--border-strong); }
+
+    .app { display: flex; height: 100vh; width: 100%; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      transition: width 0.3s var(--ease), opacity 0.3s var(--ease);
+    }
+    .sidebar.is-collapsed { width: 0; opacity: 0; pointer-events: none; border: none; }
+
+    .sidebar-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 16px 24px;
+    }
+    .sidebar-header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+    .sidebar-icon-btn {
+      padding: 6px; border-radius: 6px; color: var(--text-dim);
+      transition: background 0.15s;
+    }
+    .sidebar-icon-btn:hover { background: var(--bg-elevated); }
+
+    .nav { padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 8px; border-radius: 6px; font-size: 14px;
+      width: 100%; text-align: left; transition: background 0.15s;
+    }
+    .nav-item:hover { background: #262524; }
+    .nav-item.muted { color: var(--text-faint); }
+    .nav-item svg { color: var(--text-dim); flex-shrink: 0; }
+    .nav-badge {
+      font-size: 11px; color: var(--accent); border: 1px solid var(--border-strong);
+      padding: 2px 6px; border-radius: 4px;
+    }
+
+    .recents { margin-top: 24px; padding: 0 12px; flex: 1; overflow-y: auto; min-height: 0; }
+    .recents-label {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 8px 8px; font-size: 13px; color: var(--text-faint);
+    }
+    .recent-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 8px; border-radius: 6px; font-size: 13.5px;
+      color: var(--text-muted); cursor: pointer;
+    }
+    .recent-item:hover { background: #262524; }
+    .recent-item.active { background: var(--bg-elevated); color: var(--text); }
+
+    .sidebar-footer {
+      border-top: 1px solid var(--border);
+      padding: 12px; display: flex; align-items: center; gap: 8px;
+    }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #5a5854; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 500;
+    }
+    .profile-meta { flex: 1; min-width: 0; }
+    .profile-meta .name { font-size: 13.5px; line-height: 1.2; }
+    .profile-meta .plan { font-size: 11.5px; color: var(--text-faint); line-height: 1.2; }
+
+    /* ── Main ── */
+    .main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; height: 100vh; position: relative; }
+
+    .chat-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; padding: 10px 12px; flex-shrink: 0;
+    }
+    @media (min-width: 640px) { .chat-header { padding: 14px 16px; gap: 12px; } }
+
+    .header-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
+    @media (min-width: 640px) { .header-left { gap: 6px; } }
+
+    .icon-btn {
+      width: 36px; height: 36px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 6px; color: var(--text-dim); transition: background 0.15s;
+    }
+    @media (min-width: 640px) { .icon-btn { width: 44px; height: 44px; } }
+    .icon-btn:hover { background: var(--bg-elevated); }
+
+    .scenario-wrap { position: relative; }
+    .scenario-btn {
+      display: flex; align-items: center; gap: 4px;
+      padding: 2px 6px; border-radius: 6px; font-size: 12.5px;
+      max-width: min(220px, 50vw); transition: background 0.15s;
+    }
+    @media (min-width: 640px) { .scenario-btn { font-size: 14.5px; padding: 4px 8px; gap: 6px; } }
+    .scenario-btn:hover { background: var(--bg-elevated); }
+    .scenario-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .scenario-menu {
+      position: absolute; left: 0; top: calc(100% + 4px); z-index: 50;
+      width: 256px; padding: 6px; border-radius: 12px;
+      border: 1px solid var(--border-strong); background: var(--bg-elevated);
+      box-shadow: 0 25px 50px rgba(0,0,0,0.45);
+      display: none;
+    }
+    .scenario-menu.open { display: block; }
+    .scenario-option {
+      display: block; width: 100%; text-align: left;
+      padding: 8px 12px; border-radius: 8px; transition: background 0.15s;
+    }
+    .scenario-option:hover { background: var(--border-strong); color: var(--text); }
+    .scenario-option.active { background: var(--border-strong); }
+    .scenario-option .title { font-size: 13px; font-weight: 500; }
+    @media (min-width: 640px) { .scenario-option .title { font-size: 14px; } }
+    .scenario-option .prompt { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+    @media (min-width: 640px) { .scenario-option .prompt { font-size: 12px; } }
+
+    .plan-banner {
+      display: none; align-items: center; gap: 8px;
+      padding: 4px 4px 4px 12px; border-radius: 999px;
+      border: 1px solid var(--border-strong); background: var(--bg-elevated);
+      font-size: 13px; flex-shrink: 0;
+    }
+    .plan-banner.visible-desktop { display: flex; }
+    .plan-banner .upgrade { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+    .plan-banner .upgrade:hover { color: #d8aa7a; }
+
+    .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    @media (min-width: 640px) { .header-right { gap: 8px; } }
+
+    .candor-toggle {
+      display: flex; align-items: center; gap: 6px;
+      height: 36px; padding: 0 8px; border-radius: 999px;
+      border: 1px solid var(--border-strong); transition: all 0.2s;
+    }
+    @media (min-width: 640px) { .candor-toggle { height: 44px; padding: 0 10px; gap: 8px; } }
+    .candor-toggle.on {
+      border-color: rgba(200,154,106,0.4);
+      background: rgba(200,154,106,0.1); color: var(--accent-text);
+    }
+    .candor-toggle .dot {
+      width: 6px; height: 6px; border-radius: 50%; background: #54524e;
+      transition: background 0.2s;
+    }
+    @media (min-width: 640px) { .candor-toggle .dot { width: 8px; height: 8px; } }
+    .candor-toggle.on .dot { background: var(--accent); }
+    .candor-toggle .label { font-size: 11.5px; font-weight: 500; }
+    @media (min-width: 640px) { .candor-toggle .label { font-size: 13.5px; } }
+    .candor-toggle.compact .label { display: none; }
+    .toggle-track {
+      width: 26px; height: 16px; border-radius: 999px; padding: 2px;
+      background: var(--border-strong); transition: background 0.2s;
+      display: flex; align-items: center;
+    }
+    @media (min-width: 640px) { .toggle-track { width: 30px; height: 18px; } }
+    .candor-toggle.on .toggle-track { background: rgba(200,154,106,0.35); }
+    .toggle-knob {
+      width: 12px; height: 12px; border-radius: 50%; background: var(--text);
+      transition: margin 0.25s var(--ease);
+    }
+    @media (min-width: 640px) { .toggle-knob { width: 14px; height: 14px; } }
+    .candor-toggle.on .toggle-knob { margin-left: 10px; }
+    .candor-toggle.on.compact .toggle-knob { margin-left: 10px; }
+    .candor-toggle:not(.on) .toggle-knob { margin-left: 0; }
+
+    .share-btn {
+      border: 1px solid var(--border-strong); border-radius: 6px;
+      padding: 4px 10px; font-size: 13px; transition: background 0.15s;
+    }
+    @media (min-width: 640px) { .share-btn { padding: 6px 12px; font-size: 14px; } }
+    .share-btn:hover { background: var(--bg-elevated); }
+    .share-btn.hide-mobile { display: none; }
+    @media (min-width: 768px) { .share-btn.hide-mobile { display: block; } }
+
+    .main-row { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+
+    .chat-col { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; }
+
+    .chat-scroll {
+      position: absolute; inset: 0; overflow-y: auto;
+    }
+    .chat-inner {
+      padding: 32px 16px 192px; max-width: 48rem; margin: 0 auto;
+      transition: max-width 0.4s var(--ease);
+    }
+    @media (min-width: 640px) { .chat-inner { padding-left: 24px; padding-right: 24px; } }
+    .chat-inner.narrow { max-width: 760px; }
+
+    .chat-article { font-size: 13px; line-height: 1.7; color: var(--text-muted); }
+    @media (min-width: 640px) { .chat-article { font-size: 15.5px; line-height: 1.8; } }
+
+    .user-bubble-wrap { margin-bottom: 24px; display: flex; justify-content: flex-end; }
+    @media (min-width: 640px) { .user-bubble-wrap { margin-bottom: 32px; } }
+    .user-bubble {
+      max-width: 85%; background: var(--bg-elevated); color: var(--text);
+      border-radius: 12px; padding: 8px 12px; font-size: 13px;
+    }
+    @media (min-width: 640px) {
+      .user-bubble { border-radius: 16px; padding: 12px 16px; font-size: 15px; }
+    }
+
+    .candor-intro {
+      margin-bottom: 24px; padding: 16px 20px;
+      border-radius: 12px; border: 1px solid var(--border-strong);
+      background: var(--bg-chip);
+      animation: fadeIn 0.25s var(--ease);
+    }
+    .candor-intro h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    @media (min-width: 640px) { .candor-intro h3 { font-size: 15px; } }
+    .candor-intro p { font-size: 12px; line-height: 1.6; }
+    @media (min-width: 640px) { .candor-intro p { font-size: 13px; } }
+    .intro-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    .intro-dismiss {
+      margin-top: 12px; padding: 6px 12px; border-radius: 8px;
+      background: var(--bg-elevated); font-size: 12px; font-weight: 500;
+    }
+    .intro-dismiss:hover { background: var(--border-strong); }
+
+    .confidence-legend { margin-bottom: 24px; animation: fadeIn 0.3s var(--ease); }
+    @media (min-width: 640px) { .confidence-legend { margin-bottom: 32px; } }
+    .confidence-legend > p:first-child { font-size: 12px; font-weight: 500; color: var(--text-dim); margin-bottom: 8px; }
+    @media (min-width: 640px) { .confidence-legend > p:first-child { font-size: 13px; } }
+    .legend-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+    @media (min-width: 640px) { .legend-item { font-size: 12px; } }
+    .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
+    @media (min-width: 640px) { .legend-dot { width: 8px; height: 8px; } }
+    .legend-hint { font-size: 10px; color: var(--text-faint); line-height: 1.5; }
+    @media (min-width: 640px) { .legend-hint { font-size: 11px; } }
+
+    .response h3 {
+      font-size: 14px; font-weight: 600; color: var(--text);
+      margin: 20px 0 8px;
+    }
+    @media (min-width: 640px) { .response h3 { font-size: 15.5px; margin-top: 28px; margin-bottom: 12px; } }
+    .response p { margin-bottom: 16px; }
+    @media (min-width: 640px) { .response p { margin-bottom: 20px; } }
+
+    .inspectable {
+      position: relative; display: inline; cursor: pointer;
+      border-bottom: 1px dotted #54524e; border-radius: 2px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .inspectable:hover, .inspectable.open {
+      background: rgba(255,255,255,0.04);
+    }
+    .inspectable.open { border-bottom-color: var(--inspect-dot, #54524e); }
+
+    #inspectTooltip {
+      position: fixed; z-index: 300; pointer-events: none;
+      width: min(280px, calc(100vw - 24px)); padding: 12px 14px;
+      border-radius: 12px; border: 1px solid var(--border-strong);
+      background: var(--bg-elevated); box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+      text-align: left; font-size: 11px; line-height: 1.5; color: var(--text-dim);
+      opacity: 0; transform: translateY(4px);
+      transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
+    }
+    #inspectTooltip.visible {
+      opacity: 1; transform: translateY(0); pointer-events: auto;
+    }
+    #inspectTooltip .pop-label {
+      font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    @media (min-width: 640px) { #inspectTooltip { font-size: 12px; padding: 14px; } }
+
+    /* Message input */
+    .message-input {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 12px 12px 12px; pointer-events: none;
+    }
+    @media (min-width: 640px) { .message-input { padding: 16px; } }
+    .message-input-inner {
+      max-width: 48rem; margin: 0 auto; pointer-events: auto;
+      transition: max-width 0.4s var(--ease);
+    }
+    .message-input-inner.narrow { max-width: 760px; }
+    .scroll-down {
+      display: flex; justify-content: center; margin-bottom: 8px;
+    }
+    .scroll-down button {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--bg-elevated); border: 1px solid var(--border-strong);
+      color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    @media (min-width: 640px) { .scroll-down button { width: 32px; height: 32px; } }
+    .input-box {
+      background: var(--bg-elevated); border: 1px solid var(--border-strong);
+      border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+    @media (min-width: 640px) { .input-box { border-radius: 16px; } }
+    .input-box input {
+      width: 100%; background: transparent; border: none; outline: none;
+      padding: 10px 12px 4px; font-size: 13px; color: var(--text);
+    }
+    @media (min-width: 640px) { .input-box input { padding: 12px 16px 8px; font-size: 15px; } }
+    .input-box input::placeholder { color: var(--text-faint); }
+    .input-actions {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 10px 10px;
+    }
+    @media (min-width: 640px) { .input-actions { padding: 0 12px 12px; } }
+    .input-disclaimer {
+      text-align: center; font-size: 10px; color: var(--text-faint);
+      margin-top: 8px;
+    }
+    @media (min-width: 640px) { .input-disclaimer { font-size: 12px; margin-top: 12px; } }
+
+    /* Desktop Candor panel */
+    .candor-panel {
+      width: 0; overflow: hidden; flex-shrink: 0;
+      border-left: 1px solid var(--border);
+      background: var(--bg-panel);
+      transition: width 0.4s var(--ease), opacity 0.4s var(--ease);
+      opacity: 0;
+      min-height: 0;
+      align-self: stretch;
+    }
+    .candor-panel.open {
+      width: var(--candor-w); opacity: 1;
+      overflow: hidden;
+    }
+    @media (min-width: 1280px) {
+      :root { --candor-w: 400px; }
+    }
+    .candor-panel-inner {
+      width: var(--candor-w); height: 100%;
+      min-height: 0;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .candor-shell {
+      display: flex; flex-direction: column;
+      height: 100%; min-height: 0; overflow: hidden; flex: 1;
+    }
+    #candorPanelContent {
+      flex: 1; min-height: 0; height: 100%;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    /* Candor shared */
+    .candor-head {
+      padding: 16px 16px 12px; flex-shrink: 0;
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
+    @media (min-width: 640px) { .candor-head { padding: 20px 20px 16px; } }
+    .candor-head h2 {
+      font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+    }
+    @media (min-width: 640px) { .candor-head h2 { font-size: 17px; gap: 8px; } }
+    .candor-head .sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+    @media (min-width: 640px) { .candor-head .sub { font-size: 12.5px; margin-top: 4px; } }
+    .candor-body {
+      flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+      padding: 0 16px 24px; -webkit-overflow-scrolling: touch;
+    }
+    @media (min-width: 640px) { .candor-body { padding: 0 20px 32px; } }
+
+    .candor-section { padding-bottom: 20px; }
+    .candor-section h4 {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-faint);
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; text-align: left; padding: 4px 0;
+    }
+    @media (min-width: 640px) { .candor-section h4 { font-size: 12px; } }
+    .candor-section h4 .chev { transition: transform 0.2s; }
+    .candor-section.collapsed h4 .chev { transform: rotate(-90deg); }
+    .candor-section.collapsed .section-content { display: none; }
+    .section-content { padding-top: 12px; }
+
+    .approach-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .approach-list li {
+      display: flex; gap: 10px; font-size: 11.5px; line-height: 1.6; color: var(--text-muted);
+    }
+    @media (min-width: 640px) { .approach-list li { font-size: 12.5px; } }
+    .approach-list li::before {
+      content: ''; width: 4px; height: 4px; border-radius: 50%;
+      background: #5a5854; margin-top: 7px; flex-shrink: 0;
+    }
+
+    .assumption-card {
+      border: 1px solid var(--border-strong); border-radius: 12px;
+      background: var(--bg-chip); margin-bottom: 8px; overflow: hidden;
+    }
+    .assumption-card:hover { border-color: #4a4844; }
+    .assumption-btn {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      min-height: 44px; padding: 10px 12px; text-align: left;
+    }
+    @media (min-width: 640px) { .assumption-btn { padding: 12px 16px; gap: 10px; } }
+    .assumption-title { flex: 1; font-size: 11.5px; line-height: 1.35; }
+    @media (min-width: 640px) { .assumption-title { font-size: 13px; } }
+    .assumption-level { font-size: 9.5px; font-weight: 500; flex-shrink: 0; }
+    @media (min-width: 640px) { .assumption-level { font-size: 10.5px; } }
+    .assumption-btn .chev { transition: transform 0.25s var(--ease); flex-shrink: 0; }
+    .assumption-card.open .assumption-btn .chev { transform: rotate(180deg); }
+    .assumption-detail-wrap {
+      display: grid; grid-template-rows: 0fr;
+      transition: grid-template-rows 0.25s var(--ease);
+    }
+    .assumption-card.open .assumption-detail-wrap { grid-template-rows: 1fr; }
+    .assumption-detail-inner { overflow: hidden; }
+    .assumption-detail {
+      border-top: 1px solid var(--border);
+      padding: 12px; font-size: 11px; line-height: 1.6; color: var(--text-muted);
+    }
+    @media (min-width: 640px) { .assumption-detail { padding: 12px 16px 16px; } }
+    .assumption-detail h5 {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 4px;
+    }
+    @media (min-width: 640px) { .assumption-detail h5 { font-size: 10.5px; } }
+    .assumption-detail .block + .block { margin-top: 12px; }
+
+    .could-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .could-chip {
+      padding: 10px 12px; border-radius: 8px; text-align: left;
+      border: 1px solid var(--border-strong); background: var(--bg-chip);
+      font-size: 11.5px; font-weight: 500; transition: border-color 0.15s, background 0.15s;
+    }
+    @media (min-width: 640px) { .could-chip { font-size: 12.5px; } }
+    .could-chip:hover { border-color: #4a4844; background: var(--bg-elevated); }
+    .could-detail {
+      margin-top: 8px; padding: 12px; border-radius: 12px;
+      border: 1px solid var(--border-strong); background: var(--bg-chip);
+      display: none;
+    }
+    .could-detail.visible { display: flex; gap: 12px; animation: fadeIn 0.25s var(--ease); }
+    .could-detail p { font-size: 11px; line-height: 1.6; color: var(--text-muted); flex: 1; }
+    @media (min-width: 640px) { .could-detail p { font-size: 12px; } }
+
+    .ask-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .ask-list li {
+      padding: 10px 12px; border-radius: 8px; border-left: 2px solid #4a4844;
+      background: var(--bg-chip); font-size: 11.5px; font-style: italic;
+      line-height: 1.55; color: #d0cdc6;
+    }
+    @media (min-width: 640px) { .ask-list li { font-size: 12.5px; padding: 10px 12px; } }
+
+    .reflection { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 8px; }
+    .reflection > p { font-size: 11px; font-weight: 500; color: var(--text-dim); margin-bottom: 8px; }
+    .reflection-btns { display: flex; gap: 8px; }
+    .reflection-btns button {
+      flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 10.5px; font-weight: 500;
+      border: 1px solid var(--border-strong); background: var(--bg-chip); color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    @media (min-width: 640px) { .reflection-btns button { font-size: 11.5px; } }
+    .reflection-btns button.selected {
+      border-color: var(--accent); background: rgba(200,154,106,0.1); color: var(--accent-text);
+    }
+    .reflection-thanks { font-size: 10px; color: var(--text-faint); margin-top: 8px; display: none; }
+    .reflection-thanks.visible { display: block; }
+
+    /* Overlays */
+    .overlay {
+      position: fixed; inset: 0; z-index: 40;
+      background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .overlay.visible { opacity: 1; pointer-events: auto; }
+
+    .nav-drawer {
+      position: fixed; inset-y: 0; left: 0; z-index: 50;
+      transform: translateX(-100%); transition: transform 0.3s var(--ease);
+    }
+    .nav-drawer.open { transform: translateX(0); }
+    .nav-drawer .sidebar { height: 100vh; }
+
+    .candor-drawer {
+      position: fixed; inset: 0 0 0 auto; z-index: 50;
+      width: 85%; max-width: 460px; height: 100vh;
+      border-left: 1px solid var(--border);
+      background: var(--bg-panel);
+      transform: translateX(100%); transition: transform 0.35s var(--ease);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .candor-drawer.open { transform: translateX(0); }
+    #candorDrawerContent { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+    .bottom-sheet-wrap {
+      position: fixed; inset: 0; z-index: 50; pointer-events: none;
+    }
+    .bottom-sheet-wrap.open { pointer-events: auto; }
+    .bottom-sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 51;
+      background: var(--bg-panel); border-top: 1px solid var(--border-strong);
+      border-radius: 16px 16px 0 0;
+      height: 55vh; display: flex; flex-direction: column;
+      transform: translateY(100%); transition: transform 0.32s var(--ease), height 0.25s var(--ease);
+    }
+    .bottom-sheet-wrap.open .bottom-sheet { transform: translateY(0); }
+    .bottom-sheet.expanded { height: 90vh; }
+    .sheet-handle {
+      display: flex; justify-content: center; padding: 8px 0 4px; cursor: grab;
+    }
+    .sheet-handle span {
+      width: 32px; height: 4px; border-radius: 999px; background: #54524e;
+    }
+
+    .hide-desktop { display: flex; }
+    .hide-tablet-up { }
+    @media (min-width: 768px) { .hide-tablet-up.hide-mobile-only { display: none; } }
+    /* Demo device modes — desktop layout does not depend on browser width */
+    body.demo-desktop #desktopSidebar { display: flex !important; }
+    body.demo-desktop .hide-desktop,
+    body.demo-desktop .candor-drawer,
+    body.demo-desktop #sheetWrap { display: none !important; }
+    body.demo-desktop #app { display: flex !important; }
+    body.demo-mobile #app { display: none !important; }
+    body.demo-mobile { overflow: auto; }
+    body.demo-mobile .mobile-demo-root { display: flex !important; }
+
+  @media (max-width: 1199px) {
+      body:not(.demo-desktop) .candor-panel { display: none !important; }
+      body:not(.demo-desktop) #desktopSidebar { display: none !important; }
+    }
+    @media (min-width: 1200px) {
+      body:not(.demo-desktop) .hide-desktop { display: none !important; }
+      body:not(.demo-desktop) .candor-drawer { display: none !important; }
+      body:not(.demo-desktop) #sheetWrap { display: none !important; }
+    }
+
+    /* Device switcher (demo) */
+    .device-switcher-wrap { position: relative; flex-shrink: 0; }
+    .device-switcher-btn {
+      display: flex; align-items: center; gap: 6px;
+      height: 36px; padding: 0 10px; border-radius: 999px;
+      border: 1px solid var(--border-strong); background: var(--bg-elevated);
+      font-size: 12px; color: var(--text-muted); transition: background 0.15s;
+    }
+    @media (min-width: 640px) { .device-switcher-btn { height: 44px; font-size: 13px; padding: 0 12px; } }
+    .device-switcher-btn:hover { background: #323130; color: var(--text); }
+    .device-switcher-menu {
+      position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
+      min-width: 140px; padding: 4px; border-radius: 12px;
+      border: 1px solid var(--border-strong); background: var(--bg-elevated);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+      display: none;
+    }
+    .device-switcher-menu.open { display: block; animation: fadeIn 0.18s var(--ease); }
+    .device-switcher-menu button {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      padding: 8px 10px; border-radius: 8px; font-size: 12.5px;
+      color: var(--text-muted); text-align: left; transition: background 0.15s;
+    }
+    .device-switcher-menu button:hover { background: var(--border-strong); color: var(--text); }
+    .device-switcher-menu button.active { background: var(--border-strong); color: var(--text); }
+
+    .demo-switcher-host {
+      position: fixed; top: 16px; right: 16px; z-index: 600;
+      display: none;
+    }
+    body.demo-mobile .demo-switcher-host { display: block; }
+
+    /* Mobile demo frame */
+    .mobile-demo-root {
+      display: none; width: 100%; min-height: 100vh;
+      align-items: center; justify-content: center;
+      padding: 32px 16px; background: #1a1918;
+    }
+    .phone-frame {
+      width: 390px; max-width: 100%;
+      height: min(844px, calc(100vh - 64px));
+      border-radius: 44px; border: 3px solid #3a3835;
+      background: #121211; padding: 10px;
+      box-shadow: 0 32px 64px rgba(0,0,0,0.55);
+      flex-shrink: 0;
+    }
+    .phone-screen {
+      width: 100%; height: 100%; border-radius: 36px;
+      overflow: hidden; background: var(--bg-app);
+      display: flex; flex-direction: column; position: relative;
+    }
+    .m-header {
+      flex-shrink: 0; padding: 12px 14px 8px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .m-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .m-hamburger {
+      width: 36px; height: 36px; display: flex; flex-direction: column;
+      justify-content: center; gap: 4px; padding: 8px; border-radius: 8px;
+    }
+    .m-hamburger span {
+      display: block; height: 1.5px; background: var(--text-dim); border-radius: 1px;
+    }
+    .m-hamburger span:nth-child(1) { width: 16px; }
+    .m-hamburger span:nth-child(2) { width: 12px; }
+    .m-hamburger span:nth-child(3) { width: 18px; }
+    .m-logo { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+    .m-profile {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #5a5854; display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .m-pro-banner {
+      margin: 0 12px 8px; padding: 10px 12px; border-radius: 10px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .m-pro-banner .upgrade-link { color: #6b9bd1; font-size: 12px; }
+    .m-chat-scroll {
+      flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+      padding: 8px 14px 12px; -webkit-overflow-scrolling: touch;
+    }
+    .m-chat-scroll .user-bubble { font-size: 14px; }
+    .m-chat-scroll .response { font-size: 14px; line-height: 1.75; }
+    .m-chat-scroll .response h3 { font-size: 15px; margin-top: 18px; }
+    .m-candor-entry {
+      display: flex; justify-content: center; margin: 16px 0 8px;
+    }
+    .m-candor-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 999px;
+      border: 1px solid var(--border-strong); background: var(--bg-elevated);
+      font-size: 12.5px; color: var(--text-muted);
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+    }
+    .m-candor-pill:hover { border-color: rgba(200,154,106,0.4); color: var(--accent-text); }
+    .m-candor-pill .spark { color: var(--accent); font-size: 13px; }
+    .m-composer-wrap {
+      flex-shrink: 0; padding: 8px 12px 16px;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+    .m-composer {
+      background: var(--bg-elevated); border: 1px solid var(--border-strong);
+      border-radius: 20px; padding: 12px 12px 10px;
+    }
+    .m-composer input {
+      width: 100%; border: none; outline: none; background: transparent;
+      font-size: 15px; color: var(--text-faint); margin-bottom: 10px;
+      font-family: var(--font);
+    }
+    .m-composer-actions {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .m-composer-actions .plus-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 1px solid var(--border-strong);
+      display: flex; align-items: center; justify-content: center; color: var(--text-muted);
+    }
+    .m-model-pill {
+      display: flex; align-items: center; gap: 2px;
+      padding: 6px 8px; border-radius: 8px; font-size: 12px; color: var(--text-muted);
+    }
+    .m-composer-right { display: flex; align-items: center; gap: 6px; }
+    .m-nav-overlay {
+      position: absolute; inset: 0; z-index: 80;
+      background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+      transition: opacity 0.2s var(--ease);
+    }
+    .m-nav-overlay.open { opacity: 1; pointer-events: auto; }
+    .m-nav-drawer {
+      position: absolute; left: 0; top: 0; bottom: 0; z-index: 90;
+      width: 280px; background: var(--bg-panel);
+      transform: translateX(-100%); transition: transform 0.25s var(--ease);
+      border-right: 1px solid var(--border); overflow-y: auto;
+    }
+    .m-nav-drawer.open { transform: translateX(0); }
+
+    /* Mobile Candor sheet */
+    .m-sheet-backdrop {
+      position: absolute; inset: 0; z-index: 100;
+      background: rgba(0,0,0,0.45); opacity: 0; pointer-events: none;
+      transition: opacity 0.2s var(--ease);
+    }
+    .m-sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+    .m-candor-sheet {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 110;
+      background: var(--bg-panel); border-top: 1px solid var(--border-strong);
+      border-radius: 16px 16px 0 0;
+      display: flex; flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.25s var(--ease), height 0.25s var(--ease);
+      max-height: 92%;
+    }
+    .m-candor-sheet.state-collapsed { height: 72px; transform: translateY(calc(100% - 72px)); }
+    .m-candor-sheet.state-half { height: 55%; transform: translateY(0); }
+    .m-candor-sheet.state-full { height: 90%; transform: translateY(0); }
+    .m-candor-sheet.state-closed { transform: translateY(100%); pointer-events: none; }
+    .m-sheet-handle {
+      flex-shrink: 0; padding: 10px; cursor: grab;
+      display: flex; justify-content: center;
+    }
+    .m-sheet-handle span {
+      width: 36px; height: 4px; border-radius: 999px; background: #54524e;
+    }
+    .m-sheet-head {
+      flex-shrink: 0; padding: 0 16px 12px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
+    .m-sheet-head h2 {
+      font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+    }
+    .m-sheet-head .sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+    .m-sheet-body {
+      flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .m-section {
+      border-bottom: 1px solid var(--border); margin-bottom: 0;
+    }
+    .m-section-btn {
+      display: flex; width: 100%; align-items: center; justify-content: space-between;
+      padding: 14px 0; text-align: left;
+    }
+    .m-section-btn h4 {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-faint);
+    }
+    .m-section-btn .chev { transition: transform 0.22s var(--ease); color: var(--text-faint); }
+    .m-section.open .m-section-btn .chev { transform: rotate(180deg); }
+    .m-section-panel {
+      display: grid; grid-template-rows: 0fr;
+      transition: grid-template-rows 0.22s var(--ease);
+    }
+    .m-section.open .m-section-panel { grid-template-rows: 1fr; }
+    .m-section-panel-inner { overflow: hidden; }
+    .m-section-content { padding-bottom: 14px; }
+
+    .m-assumption-card {
+      border: 1px solid var(--border-strong); border-radius: 12px;
+      background: var(--bg-chip); margin-bottom: 8px; overflow: hidden;
+    }
+    .m-assumption-card .m-assumption-btn {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      min-height: 44px; padding: 10px 12px; text-align: left;
+    }
+    .m-assumption-card.open .m-assumption-detail-wrap { grid-template-rows: 1fr; }
+    .m-could-card, .m-ask-card {
+      border: 1px solid var(--border-strong); border-radius: 10px;
+      background: var(--bg-chip); margin-bottom: 8px; overflow: hidden;
+    }
+    .m-could-card .m-card-btn, .m-ask-card .m-card-btn {
+      display: flex; width: 100%; align-items: center; justify-content: space-between;
+      padding: 12px; text-align: left; font-size: 12.5px; font-weight: 500;
+    }
+    .m-card-detail-wrap {
+      display: grid; grid-template-rows: 0fr;
+      transition: grid-template-rows 0.22s var(--ease);
+    }
+    .m-could-card.open .m-card-detail-wrap,
+    .m-ask-card.open .m-card-detail-wrap { grid-template-rows: 1fr; }
+    .m-card-detail-inner { overflow: hidden; }
+    .m-card-detail {
+      padding: 0 12px 12px; font-size: 11px; line-height: 1.6; color: var(--text-muted);
+    }
+    .m-card-detail h5 {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 4px;
+    }
+    .m-reflection { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 8px; }
+    .m-scenario-bar {
+      padding: 0 14px 6px; display: flex; gap: 6px; overflow-x: auto;
+    }
+    .m-scenario-chip {
+      flex-shrink: 0; padding: 5px 10px; border-radius: 999px; font-size: 11px;
+      border: 1px solid var(--border-strong); color: var(--text-faint);
+      white-space: nowrap; transition: all 0.15s;
+    }
+    .m-scenario-chip.active {
+      border-color: rgba(200,154,106,0.4); background: rgba(200,154,106,0.1); color: var(--accent-text);
+    }
+
+    #mobileConfidenceCard {
+      position: fixed; z-index: 700; pointer-events: none;
+      width: min(280px, calc(100vw - 32px)); padding: 12px 14px;
+      border-radius: 12px; border: 1px solid var(--border-strong);
+      background: var(--bg-elevated); box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+      opacity: 0; transform: translateY(6px);
+      transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
+    }
+    #mobileConfidenceCard.visible {
+      opacity: 1; transform: translateY(0); pointer-events: auto;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .scenario-backdrop {
+      position: fixed; inset: 0; z-index: 40; display: none;
+    }
+    .scenario-backdrop.open { display: block; }
+  </style>
+</head>
+<body class="demo-desktop">
+  <div id="demoSwitcherHost" class="demo-switcher-host"></div>
+
+  <div class="mobile-demo-root" id="mobileDemoRoot" hidden>
+    <div class="phone-frame">
+      <div class="phone-screen" id="mobileScreen"></div>
+    </div>
+  </div>
+
+  <div class="app" id="app">
+    <aside class="sidebar" id="desktopSidebar" aria-label="Navigation">
+      <div id="sidebarContent"></div>
+    </aside>
+
+    <div class="overlay" id="navOverlay" aria-hidden="true"></div>
+    <div class="nav-drawer hide-desktop" id="navDrawer">
+      <aside class="sidebar" aria-label="Navigation menu">
+        <div id="navDrawerContent"></div>
+      </aside>
+    </div>
+
+    <main class="main">
+      <header class="chat-header" id="chatHeader"></header>
+      <div class="main-row">
+        <div class="chat-col">
+          <div class="chat-scroll scroll-container" id="chatScroll">
+            <div class="chat-inner" id="chatInner">
+              <article class="chat-article" id="chatArticle"></article>
+            </div>
+          </div>
+          <div class="message-input">
+            <div class="message-input-inner" id="inputInner">
+              <div class="scroll-down">
+                <button type="button" aria-label="Scroll to bottom" onclick="document.getElementById('chatScroll').scrollTop = document.getElementById('chatScroll').scrollHeight">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                </button>
+              </div>
+              <div class="input-box">
+                <input type="text" placeholder="Write a message…" />
+                <div class="input-actions">
+                  <button type="button" class="icon-btn" style="width:28px;height:28px;border:1px solid var(--border-strong);border-radius:50%" aria-label="Add attachment">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                  <div style="display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:12px">
+                    <button type="button" style="padding:4px 8px;border-radius:6px">Sonnet 4.6 <span style="color:var(--text-faint)">Max</span></button>
+                    <button type="button" class="icon-btn" style="width:32px;height:32px" aria-label="Voice input">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>
+                    </button>
+                    <button type="button" style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center" aria-label="Audio mode">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1f1e1d" stroke-width="2"><path d="M4 12v4M8 8v8M12 4v16M16 8v8M20 12v4"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p class="input-disclaimer">Claude is AI and can make mistakes. Please double-check responses.</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="candor-panel" id="candorPanel" aria-label="Candor panel">
+          <div class="candor-panel-inner">
+            <div id="candorPanelContent"></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <div class="overlay" id="drawerOverlay"></div>
+    <aside class="candor-drawer hide-desktop" id="candorDrawer" aria-label="Candor drawer">
+      <div id="candorDrawerContent"></div>
+    </aside>
+
+    <div class="bottom-sheet-wrap hide-desktop" id="sheetWrap">
+      <div class="overlay" id="sheetOverlay"></div>
+      <div class="bottom-sheet" id="bottomSheet">
+        <div class="sheet-handle" id="sheetHandle"><span></span></div>
+        <div id="sheetContent" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden"></div>
+      </div>
+    </div>
+
+    <div class="scenario-backdrop" id="scenarioBackdrop"></div>
+    <div id="inspectTooltip" role="tooltip" aria-hidden="true"></div>
+  </div>
+
+  <div id="mobileConfidenceCard" role="dialog" aria-hidden="true"></div>
+
+  <script>
+    const confidenceMeta = {
+      Supported: { dot: '#7a9b82', label: 'Supported', text: '#a9c4af', definition: 'Directly grounded in your prompt or widely accepted patterns.' },
+      Inferred: { dot: '#c4a06a', label: 'Inferred', text: '#d6bd8f', definition: 'A reasonable conclusion from available context.' },
+      Assumed: { dot: '#b58078', label: 'Assumed', text: '#cda49d', definition: 'Depends on information not provided.' },
+    };
+
+    const scenarios = {
+      career: {
+        id: 'career',
+        title: 'Career decision',
+        shortTitle: 'Career decision',
+        userPrompt: 'Should I take a product internship at a startup or consulting internship if I want to move into product later?',
+        approach: [
+          'I drew on common career-mobility patterns for early product roles, weighting hands-on ownership against structured exposure.',
+          'I traded breadth of business context against depth of building experience, since both routes can lead into product.',
+          'I prioritized what tends to matter for a first PM hire — demonstrated shipping instinct — over brand prestige alone.',
+        ],
+        assumptions: [
+          { id: 'a1', level: 'Supported', title: 'Startups give earlier product ownership', detail: 'Smaller teams routinely hand interns real surface area because there is simply less staffing to go around.', whyMatters: 'Early ownership is the strongest signal for PM hiring — it shows you can operate amid ambiguity rather than just analyze it.', influencedAnswer: 'This pushed the recommendation toward the startup path as the default for building PM-ready stories.', ifWrong: 'If the startup has a rigid hierarchy or the consulting firm offers unusual client-facing work, this advantage narrows.' },
+          { id: 'a2', level: 'Inferred', title: 'You value long-term product depth over near-term pay', detail: 'Your framing emphasizes "move into product later," which I read as prioritizing trajectory over immediate compensation.', whyMatters: 'The recommendation prioritizes PM skill development over prestige or compensation, which shapes the entire answer.', influencedAnswer: 'I weighted shipping experience and product proximity more heavily than brand prestige or near-term pay.', ifWrong: 'If compensation or brand prestige is actually your top priority, consulting becomes significantly more attractive.' },
+          { id: 'a3', level: 'Assumed', title: 'Both offers are roughly comparable in caliber', detail: 'I assumed neither option is dramatically stronger on team, mentorship, or brand – which could change the answer.', whyMatters: 'The quality of the specific team and mentorship matters more than the category (startup vs. consulting).', influencedAnswer: 'I compared categories in the abstract rather than ranking two named offers.', ifWrong: 'A top-tier consulting firm or an exceptional startup team could completely flip the recommendation regardless of general patterns.' },
+        ],
+        notCovered: [
+          'Your financial constraints and whether internship pay materially affects the decision.',
+          'The specific companies involved — a top-tier firm on either side can outweigh the general pattern.',
+        ],
+        askYourself: [
+          'Which environment will most expose me to the messy, ambiguous parts of building a product?',
+          'Six months from now, what story do I want to be able to tell in a PM interview?',
+        ],
+        couldChange: [
+          { id: 'c1', title: 'Company Quality', explanation: 'A top-tier consulting firm (MBB) or an exceptional startup (strong team, clear product-market fit) could outweigh general category patterns.' },
+          { id: 'c2', title: 'Mentorship', explanation: 'Access to a strong PM mentor at either option would be more valuable than the structural advantages of the role itself.' },
+          { id: 'c3', title: 'Compensation', explanation: 'If near-term pay or financial pressure is high, consulting\'s compensation and stability may outweigh startup product exposure.' },
+          { id: 'c4', title: 'Geography', explanation: 'Location matters for network-building. A consulting role in a major tech hub might offer better long-term PM connections than a remote startup.' },
+          { id: 'c5', title: 'Risk Tolerance', explanation: 'If you prefer structured learning and optionality across functions, consulting may fit better even when product is the long-term goal.' },
+        ],
+        inspectable: [
+          { level: 'Inferred', explanation: "Based on your phrasing 'move into product later,' I read trajectory as your main priority." },
+          { level: 'Supported', explanation: 'Smaller teams have less staffing slack, so interns routinely own real product surface area.' },
+          { level: 'Assumed', explanation: "I'm assuming the startup offer comes with genuine mentorship; a chaotic team with no guidance changes this." },
+          { level: 'Inferred', explanation: "Consulting's structured training and prestige are widely documented, but their value to you depends on goals." },
+          { level: 'Inferred', explanation: 'Given your stated goal of product, the route with more direct shipping experience is usually the stronger bet.' },
+        ],
+      },
+      finance: {
+        id: 'finance',
+        title: 'Financial analysis',
+        shortTitle: 'Financial analysis',
+        userPrompt: 'Calculate the 95% Value at Risk for my $1M portfolio with 60% equities and 40% bonds.',
+        approach: [
+          'I used historical volatility estimates for equities (15% annual) and bonds (5% annual) based on long-term market data.',
+          'I applied the variance-covariance method, assuming a correlation of 0.3 between equities and bonds.',
+          'I calculated the portfolio standard deviation and applied the 95% confidence interval (1.65 standard deviations).',
+        ],
+        assumptions: [
+          { id: 'f1', level: 'Assumed', title: 'Returns are normally distributed', detail: 'The VaR calculation assumes asset returns follow a normal distribution, which is standard in financial modeling but rarely holds in practice.', whyMatters: 'Normal distribution assumptions underestimate tail risk — extreme market events occur far more frequently than the model predicts.', influencedAnswer: 'I reported a single daily VaR figure without stressing tail risk beyond the threshold.', ifWrong: 'If returns have fat tails, your actual risk is significantly higher than the VaR estimate.' },
+          { id: 'f2', level: 'Inferred', title: 'Historical volatility predicts future risk', detail: 'I used past volatility (15% for equities, 5% for bonds) to estimate future risk.', whyMatters: 'VaR is backward-looking. If market volatility increases, your actual risk will exceed the estimate.', influencedAnswer: 'I anchored the estimate to long-run historical vol rather than current implied or regime-adjusted measures.', ifWrong: 'During periods of market stress, volatility can spike 2-3x.' },
+          { id: 'f3', level: 'Supported', title: 'Equities and bonds are partially correlated', detail: 'A 0.3 correlation between equities and bonds is well-documented.', whyMatters: 'Diversification reduces portfolio risk. The correlation assumption directly affects risk reduction.', influencedAnswer: 'The blended portfolio vol and VaR reflect diversification benefit from the 60/40 mix.', ifWrong: 'During market crises, correlations can spike toward 1.0, eliminating diversification benefits.' },
+        ],
+        notCovered: [
+          'Liquidity risk — whether you can sell positions at market prices during stress.',
+          'Concentration risk within asset classes.',
+        ],
+        askYourself: [
+          'Am I comfortable with the possibility that actual losses could exceed this VaR estimate?',
+          'How would I respond if the market moved against me by more than the VaR suggests?',
+        ],
+        couldChange: [
+          { id: 'f_c1', title: 'Market Regime', explanation: 'VaR estimates are regime-dependent. In crisis periods, it can be 2-3x higher.' },
+          { id: 'f_c2', title: 'Time Horizon', explanation: 'This VaR is for a single day. Over longer periods, risk compounds differently.' },
+          { id: 'f_c3', title: 'Correlation Breakdown', explanation: 'During stress, correlations can spike to 1.0, increasing risk beyond the estimate.' },
+          { id: 'f_c4', title: 'Fat Tails', explanation: 'Real returns have fatter tails than normal distributions predict.' },
+          { id: 'f_c5', title: 'Model Risk', explanation: 'Monte Carlo or historical simulation might give different VaR estimates.' },
+        ],
+        inspectable: [
+          { level: 'Supported', explanation: 'The variance-covariance method is a standard approach for VaR calculation.' },
+          { level: 'Assumed', explanation: 'This assumes returns are normally distributed — real returns have fatter tails.' },
+          { level: 'Inferred', explanation: 'Historical volatility is a reasonable proxy but can change rapidly during stress.' },
+          { level: 'Assumed', explanation: 'The 0.3 correlation is typical but not guaranteed during crises.' },
+        ],
+      },
+      resume: {
+        id: 'resume',
+        title: 'Resume review',
+        shortTitle: 'Resume review',
+        userPrompt: 'Review my resume for a first product manager role. What should I cut, strengthen, or reframe?',
+        approach: [
+          'I read your resume through the lens of what early PM hiring managers scan for in under two minutes: impact, ownership, and product judgment.',
+          'I separated true product signal from adjacent experience (analytics, project management, or general business work) that reads weaker without reframing.',
+          'I prioritized clarity and scannable proof of outcomes over comprehensive role descriptions.',
+        ],
+        assumptions: [
+          { id: 'r1', level: 'Inferred', title: 'You are targeting associate or APM-level PM roles', detail: 'The question references a first PM role, which I interpret as junior product management rather than senior IC or TPM tracks.', whyMatters: 'Expectations for scope, metrics, and leadership differ sharply by level — advice for a first PM role would be wrong for a director hire.', influencedAnswer: 'I focused on proving initiative and learning velocity rather than org-wide strategy or P&L ownership.', ifWrong: 'If you are pivoting into senior PM or TPM roles, the emphasis on scrappy ownership and internship-scale wins would need to shift.' },
+          { id: 'r2', level: 'Assumed', title: 'Your bullets understate measurable outcomes', detail: 'Without seeing metrics in every line, I assumed several bullets describe activities ("supported," "helped," "worked on") more than results.', whyMatters: 'PM resumes are judged on whether you can point to decisions and outcomes, not participation.', influencedAnswer: 'I recommended rewriting bullets around decisions, trade-offs, and user or business impact.', ifWrong: 'If your resume already leads with strong quantified outcomes, cutting or reframing those lines could remove your strongest signal.' },
+          { id: 'r3', level: 'Supported', title: 'Recruiters skim for product verbs and artifacts', detail: 'Hiring patterns for junior PM consistently reward language about discovery, prioritization, shipping, and metrics — this is well documented in recruiting guidance.', whyMatters: 'Keyword and structure choices affect whether your resume survives the first screen.', influencedAnswer: 'I suggested surfacing specs, experiments, roadmaps, or shipped features explicitly where they exist.', ifWrong: 'If you are applying through referrals only, formatting and keyword optimization may matter less than your network narrative.' },
+        ],
+        notCovered: [
+          'Your target company size, industry, or geo — B2B enterprise vs. consumer startup resumes emphasize different proof.',
+          'Portfolio, case studies, or work samples that might outweigh resume bullet quality.',
+        ],
+        askYourself: [
+          'Does each bullet answer what problem existed, what I decided, and what changed?',
+          'Would a skeptical PM hire me based on this page alone in ninety seconds?',
+        ],
+        couldChange: [
+          { id: 'r_c1', title: 'Years of Experience', explanation: 'More years in adjacent roles (engineering, design, ops) would change how aggressively to cut non-PM content.' },
+          { id: 'r_c2', title: 'PM-adjacent Title', explanation: 'If you already held "Product" in a title, the resume may need refinement rather than a full reframe.' },
+          { id: 'r_c3', title: 'Industry Switch', explanation: 'Pivoting from finance or consulting into PM often requires a different narrative arc than undergrad-to-APM paths.' },
+          { id: 'r_c4', title: 'Portfolio Strength', explanation: 'A strong product portfolio can justify a shorter resume with fewer quantified bullets.' },
+          { id: 'r_c5', title: 'Referral Path', explanation: 'Warm intros reduce reliance on resume keywords and one-page scannability.' },
+        ],
+        inspectable: [
+          { level: 'Inferred', explanation: "You asked for a first PM role, so I tuned advice toward associate-level signal, not staff-level scope." },
+          { level: 'Assumed', explanation: 'Several bullets read activity-first; I assumed outcomes are stronger in the underlying work than on the page.' },
+          { level: 'Supported', explanation: 'PM recruiters consistently scan for ownership, metrics, and shipped work — this shapes the cut/strengthen guidance.' },
+          { level: 'Inferred', explanation: 'Projects without user or metric hooks are weaker PM signal than end-to-end features you drove.' },
+          { level: 'Assumed', explanation: 'I assumed you can add numbers or scope to at least some bullets without inventing impact.' },
+        ],
+      },
+    };
+
+    const recents = [
+      { title: 'PM graduation project execution', active: true },
+      { title: 'Direct outreach strategy for Firs...' },
+      { title: 'Interview prep with prompt engi...' },
+      { title: 'Resume review for product grow...' },
+      { title: 'Feedback on process and impro...' },
+      { title: 'Portfolio projects for SCMAC ap...' },
+      { title: 'Spotify home page learning tab ...' },
+    ];
+
+    const state = {
+      scenarioId: 'career',
+      deviceMode: 'desktop',
+      showDeviceMenu: false,
+      candorOn: true,
+      drawerOpen: false,
+      sheetOpen: false,
+      navOpen: false,
+      sidebarCollapsed: false,
+      showScenarios: false,
+      showIntro: false,
+      selectedCould: null,
+      reflection: null,
+      sheetExpanded: false,
+      openAssumptionId: null,
+      introSeen: { career: false, finance: false, resume: false },
+      mobileSheetState: 'closed',
+      mobileOpenSectionId: null,
+      mobileOpenAssumptionId: null,
+      mobileOpenCouldId: null,
+      mobileOpenAskId: null,
+      mobileInspectOn: false,
+      mobileNavOpen: false,
+    };
+
+    function enrichScenarios() {
+      const askMeta = {
+        career: [
+          { whyMatters: 'This distinguishes learning-by-doing from learning-by-advising.', howAffects: 'A yes pushes you toward startup exposure; a no suggests consulting or hybrid roles.' },
+          { whyMatters: 'Interview narratives are built from concrete stories, not intentions.', howAffects: 'Your answer shapes which internship gives you the stronger PM story in six months.' },
+        ],
+        finance: [
+          { whyMatters: 'VaR is a planning tool — comfort with tail risk changes position sizing.', howAffects: 'Less comfort → smaller positions or hedges; more comfort → hold allocation.' },
+          { whyMatters: 'Preparation beats surprise during drawdowns.', howAffects: 'Shapes whether you treat VaR as a hard limit or a rough guide.' },
+        ],
+        resume: [
+          { whyMatters: 'PM screens reward proof of decisions under ambiguity.', howAffects: 'Honest no → aggressive rewrite; yes → polish and cut.' },
+          { whyMatters: 'Recruiters decide quickly whether to interview.', howAffects: 'Weak yes → restructure the top third of your resume before applying.' },
+        ],
+      };
+      Object.keys(scenarios).forEach((id) => {
+        scenarios[id].askCards = scenarios[id].askYourself.map((prompt, i) => ({
+          id: `${id}_ask_${i}`,
+          prompt,
+          whyMatters: askMeta[id][i].whyMatters,
+          howAffects: askMeta[id][i].howAffects,
+        }));
+      });
+    }
+
+    function isDesktopDemo() {
+      return state.deviceMode === 'desktop';
+    }
+
+    function getBreakpoint() {
+      if (isDesktopDemo()) {
+        return { isMobile: false, isTablet: false, isDesktop: true };
+      }
+      return { isMobile: true, isTablet: false, isDesktop: false };
+    }
+
+    function candorEnabled() {
+      if (!isDesktopDemo()) return state.mobileInspectOn || state.mobileSheetState !== 'closed';
+      const bp = getBreakpoint();
+      if (bp.isMobile) return state.sheetOpen;
+      if (bp.isTablet) return state.drawerOpen;
+      return state.candorOn;
+    }
+
+    function initFromUrl() {
+      const params = new URLSearchParams(location.search);
+      if (params.get('candor') === '0' || params.get('candor') === 'false') state.candorOn = false;
+      if (params.get('sheet') === '1') { state.sheetOpen = true; state.candorOn = true; }
+      if (params.get('scenario') === 'finance') state.scenarioId = 'finance';
+      if (params.get('scenario') === 'resume') state.scenarioId = 'resume';
+      if (params.get('device') === 'mobile') state.deviceMode = 'mobile';
+    }
+
+    const DeviceSwitcher = {
+      render() {
+        const label = state.deviceMode === 'desktop' ? 'Desktop' : 'Mobile';
+        const icon = state.deviceMode === 'desktop' ? '🖥' : '📱';
+        return `
+          <div class="device-switcher-wrap">
+            <button type="button" class="device-switcher-btn" onclick="toggleDeviceMenu(event)" aria-haspopup="listbox" aria-expanded="${state.showDeviceMenu}">
+              <span aria-hidden="true">${icon}</span>
+              <span>${label}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8780" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="device-switcher-menu ${state.showDeviceMenu ? 'open' : ''}" role="listbox">
+              <button type="button" class="${state.deviceMode === 'desktop' ? 'active' : ''}" onclick="setDeviceMode('desktop')">🖥 Desktop</button>
+              <button type="button" class="${state.deviceMode === 'mobile' ? 'active' : ''}" onclick="setDeviceMode('mobile')">📱 Mobile</button>
+            </div>
+          </div>`;
+      },
+    };
+
+    const MobileConfidenceCard = {
+      show(el) {
+        const card = document.getElementById('mobileConfidenceCard');
+        const level = el.dataset.level;
+        const why = el.getAttribute('data-why') || '';
+        const m = confidenceMeta[level];
+        document.querySelectorAll('#mobileScreen .inspectable.open').forEach((x) => x.classList.remove('open'));
+        el.classList.add('open');
+        card.innerHTML = `
+          <div class="pop-label" style="color:${m.text};display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;margin-bottom:8px">
+            <span class="legend-dot" style="background:${m.dot}"></span>${m.label}
+          </div>
+          <p style="margin-bottom:8px;font-size:10.5px;color:var(--text-dim)">${esc(m.definition)}</p>
+          <p style="font-size:11px;color:var(--text-muted)"><strong style="font-weight:600;color:var(--text-dim)">Why this label:</strong> ${esc(why)}</p>`;
+        const rect = el.getBoundingClientRect();
+        const w = Math.min(280, window.innerWidth - 24);
+        let left = Math.min(rect.left, window.innerWidth - w - 12);
+        left = Math.max(12, left);
+        let top = rect.bottom + 8;
+        card.style.width = w + 'px';
+        card.style.left = left + 'px';
+        card.style.top = top + 'px';
+        card.classList.add('visible');
+        card.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(() => {
+          if (top + card.offsetHeight > window.innerHeight - 12) {
+            top = Math.max(12, rect.top - card.offsetHeight - 8);
+            card.style.top = top + 'px';
+          }
+        });
+      },
+      hide() {
+        const card = document.getElementById('mobileConfidenceCard');
+        card.classList.remove('visible');
+        card.setAttribute('aria-hidden', 'true');
+        document.querySelectorAll('#mobileScreen .inspectable.open').forEach((x) => x.classList.remove('open'));
+      },
+    };
+
+    const MobileAssumptionAccordion = {
+      render(a) {
+        const m = confidenceMeta[a.level];
+        const open = state.mobileOpenAssumptionId === a.id;
+        return `
+          <div class="m-assumption-card assumption-card${open ? ' open' : ''}">
+            <button type="button" class="m-assumption-btn assumption-btn" onclick="toggleMobileAssumption('${a.id}')" aria-expanded="${open}">
+              <span class="legend-dot" style="background:${m.dot}"></span>
+              <span class="assumption-title">${esc(a.title)}</span>
+              <span class="assumption-level" style="color:${m.text}">${m.label}</span>
+              <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8780" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="assumption-detail-wrap">
+              <div class="assumption-detail-inner">
+                <div class="assumption-detail">
+                  <div class="block"><h5>Assumption</h5><p>${esc(a.detail)}</p></div>
+                  <div class="block"><h5>Why it matters</h5><p>${esc(a.whyMatters)}</p></div>
+                  <div class="block"><h5>How it influenced the answer</h5><p>${esc(a.influencedAnswer)}</p></div>
+                  <div class="block"><h5>What changes if the assumption is wrong</h5><p>${esc(a.ifWrong)}</p></div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      },
+    };
+
+    const MobileReflectionCard = {
+      render(item) {
+        const open = state.mobileOpenAskId === item.id;
+        return `
+          <div class="m-ask-card${open ? ' open' : ''}">
+            <button type="button" class="m-card-btn" onclick="toggleMobileAsk('${item.id}')">
+              <span>${esc(item.prompt)}</span>
+              <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8780" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="m-card-detail-wrap">
+              <div class="m-card-detail-inner">
+                <div class="m-card-detail">
+                  <h5>Why this question matters</h5>
+                  <p style="margin-bottom:10px">${esc(item.whyMatters)}</p>
+                  <h5>How different answers affect the recommendation</h5>
+                  <p>${esc(item.howAffects)}</p>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      },
+    };
+
+    const MobileCandorSheet = {
+      render() {
+        const s = scenarios[state.scenarioId];
+        const sheetClass = `m-candor-sheet state-${state.mobileSheetState}`;
+        const sections = [
+          { id: 'approach', title: 'How I Approached This', body: `<ul class="approach-list">${s.approach.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` },
+          { id: 'assumptions', title: 'Assumptions I Made', body: s.assumptions.map((a) => MobileAssumptionAccordion.render(a)).join('') },
+          { id: 'could', title: 'What Could Change This Answer?', body: MobileCandorSheet.renderCould(s) },
+          { id: 'notcovered', title: "What I Didn't Cover", body: `<ul class="approach-list">${s.notCovered.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` },
+          { id: 'ask', title: 'Ask Yourself', body: s.askCards.map((item) => MobileReflectionCard.render(item)).join('') },
+        ];
+        const sectionHtml = sections.map((sec) => {
+          const open = state.mobileOpenSectionId === sec.id;
+          return `
+            <div class="m-section${open ? ' open' : ''}">
+              <button type="button" class="m-section-btn" onclick="toggleMobileSection('${sec.id}')">
+                <h4>${sec.title}</h4>
+                <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="m-section-panel">
+                <div class="m-section-panel-inner">
+                  <div class="m-section-content">${sec.body}</div>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+
+        const reflection = `
+          <div class="m-reflection reflection">
+            <p>Did this change your confidence in the answer?</p>
+            <div class="reflection-btns">
+              ${['more', 'less', 'same'].map((id) => {
+                const labels = { more: 'More confident', less: 'Less confident', same: 'No change' };
+                return `<button type="button" class="${state.reflection === id ? 'selected' : ''}" onclick="setReflection('${id}')">${labels[id]}</button>`;
+              }).join('')}
+            </div>
+            <p class="reflection-thanks ${state.reflection ? 'visible' : ''}">Thank you for the feedback.</p>
+          </div>`;
+
+        return `
+          <div class="m-sheet-backdrop ${state.mobileSheetState !== 'closed' ? 'open' : ''}" onclick="setMobileSheetState('closed')"></div>
+          <div class="${sheetClass}" id="mobileCandorSheet">
+            <div class="m-sheet-handle" id="mobileSheetHandle"><span></span></div>
+            <div class="m-sheet-head">
+              <div>
+                <h2><span class="intro-dot"></span> Candor</h2>
+                <p class="sub">Helping you evaluate this response</p>
+              </div>
+              <button type="button" class="icon-btn" onclick="setMobileSheetState('closed')" aria-label="Close" style="width:36px;height:36px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div class="m-sheet-body scroll-container">${sectionHtml}${reflection}</div>
+          </div>`;
+      },
+      renderCould(s) {
+        return s.couldChange.map((c) => {
+          const open = state.mobileOpenCouldId === c.id;
+          return `
+            <div class="m-could-card${open ? ' open' : ''}">
+              <button type="button" class="m-card-btn" onclick="toggleMobileCould('${c.id}')">
+                <span>${esc(c.title)}</span>
+                <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8780" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="m-card-detail-wrap">
+                <div class="m-card-detail-inner">
+                  <div class="m-card-detail"><p>${esc(c.explanation)}</p></div>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      },
+    };
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function attrEsc(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;');
+    }
+
+    function inspectableHtml(text, meta, enabled) {
+      if (!enabled) return esc(text);
+      const m = confidenceMeta[meta.level];
+      return `<span class="inspectable" tabindex="0" data-level="${meta.level}" data-why="${attrEsc(meta.explanation)}" style="--inspect-dot:${m.dot}">${esc(text)}</span>`;
+    }
+
+    function hideInspectTooltip() {
+      const tip = document.getElementById('inspectTooltip');
+      tip.classList.remove('visible');
+      tip.setAttribute('aria-hidden', 'true');
+      document.querySelectorAll('.inspectable.open').forEach((x) => x.classList.remove('open'));
+    }
+
+    function showInspectTooltip(el) {
+      const tip = document.getElementById('inspectTooltip');
+      const level = el.dataset.level;
+      const why = el.getAttribute('data-why') || '';
+      const m = confidenceMeta[level];
+      document.querySelectorAll('.inspectable.open').forEach((x) => x.classList.remove('open'));
+      el.classList.add('open');
+      tip.innerHTML = `
+        <div class="pop-label" style="color:${m.text}">
+          <span class="legend-dot" style="background:${m.dot}"></span>${m.label}
+        </div>
+        <p style="margin-bottom:8px;font-size:10.5px">${esc(m.definition)}</p>
+        <p style="color:var(--text-muted)"><strong style="font-weight:600;color:var(--text-dim)">Why this label:</strong> ${why}</p>`;
+      tip.classList.add('visible');
+      tip.setAttribute('aria-hidden', 'false');
+      const rect = el.getBoundingClientRect();
+      const tipW = Math.min(280, window.innerWidth - 24);
+      let left = rect.left;
+      if (left + tipW > window.innerWidth - 12) left = window.innerWidth - tipW - 12;
+      if (left < 12) left = 12;
+      let top = rect.bottom + 8;
+      tip.style.width = tipW + 'px';
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+      requestAnimationFrame(() => {
+        const th = tip.offsetHeight;
+        if (top + th > window.innerHeight - 12) {
+          top = Math.max(12, rect.top - th - 8);
+          tip.style.top = top + 'px';
+        }
+      });
+    }
+
+    const panelLeftIcon = (size) => {
+      const s = size || 18;
+      return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>`;
+    };
+
+    function renderSidebarHtml() {
+      const navIcons = {
+        plus: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+        chat: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        folder: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+        sparkles: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>',
+        code: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+        settings: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>',
+      };
+      return `
+        <div class="sidebar-header">
+          <h1>Claude</h1>
+          <div style="display:flex;gap:4px">
+            <button class="sidebar-icon-btn" aria-label="Search">${navIcons.search || '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>'}</button>
+            <button class="sidebar-icon-btn" aria-label="Toggle sidebar" onclick="toggleSidebar()">
+              ${panelLeftIcon(18)}
+            </button>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item">${navIcons.plus} New chat</button>
+          <button class="nav-item">${navIcons.chat} Chats</button>
+          <button class="nav-item">${navIcons.folder} Projects</button>
+          <button class="nav-item">${navIcons.sparkles} Artifacts</button>
+          <button class="nav-item muted">${navIcons.code} Code <span class="nav-badge" style="margin-left:auto">Upgrade</span></button>
+          <button class="nav-item">${navIcons.settings} Customize</button>
+        </nav>
+        <div class="recents">
+          <div class="recents-label"><span>Recents</span></div>
+          <ul style="list-style:none">${recents.map(r => `<li class="recent-item${r.active ? ' active' : ''}"><span style="truncate;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.title)}</span></li>`).join('')}</ul>
+        </div>
+        <div class="sidebar-footer">
+          <div class="avatar">S</div>
+          <div class="profile-meta"><div class="name">Saatvik</div><div class="plan">Free plan</div></div>
+        </div>`;
+    }
+
+    function renderCareerResponse(s, on) {
+      const i = s.inspectable;
+      return `
+        <div class="response">
+          <p>Both paths can lead into product, so this is less about which one is "right" and more about what kind of signal and experience you want to be carrying into your first full-time PM search. ${inspectableHtml('The honest answer depends on how quickly you want to be doing product work versus learning the business machinery around it.', i[0], on)}</p>
+          <h3>The case for the startup PM internship</h3>
+          <p>${inspectableHtml("At a startup, you'll almost certainly touch the actual work of product earlier — writing specs, talking to users, making scope calls, watching things ship and break.", i[1], on)} That hands-on ownership is the single most legible thing a future hiring manager looks for. ${inspectableHtml('The risk is that a thin team can leave you under-mentored, learning bad habits without a feedback loop.', i[2], on)}</p>
+          <h3>The case for the consulting internship</h3>
+          <p>Consulting gives you structured exposure to how businesses make decisions, plus a brand that opens doors. ${inspectableHtml("You'll build a sharp analytical foundation and a network that compounds over a career.", i[3], on)} The tradeoff is distance from the craft — you'll be advising on products more than building them.</p>
+          <h3>My recommendation</h3>
+          <p>${inspectableHtml('If product is the clear destination, the startup internship is usually the better investment — it gives you the rare, hard-to-fake experience of having actually shipped something.', i[4], on)} Consulting becomes the smarter choice if you're still genuinely undecided or the specific firm is dramatically stronger.</p>
+        </div>`;
+    }
+
+    function renderFinanceResponse(s, on) {
+      const i = s.inspectable;
+      return `
+        <div class="response">
+          <p>${inspectableHtml("Using the variance-covariance method, your portfolio's 95% Value at Risk is approximately $24,750 per day.", i[0], on)} This means there's a 5% chance your portfolio could lose more than $24,750 in a single day.</p>
+          <h3>Calculation breakdown</h3>
+          <p>Your portfolio has 60% equities ($600K) and 40% bonds ($400K). ${inspectableHtml('The calculation assumes returns are normally distributed and applies a 0.3 correlation between asset classes.', i[1], on)}</p>
+          <p>Portfolio standard deviation works out to approximately 9.5% annually. ${inspectableHtml('At the 95% confidence level (1.65 standard deviations), this translates to the $24,750 VaR figure.', i[2], on)}</p>
+          <h3>Important caveats</h3>
+          <p>VaR is a single-point estimate. ${inspectableHtml('The model also assumes correlations remain stable, but during market stress, diversification benefits can disappear as correlations spike toward 1.0.', i[3], on)} Consider this VaR as a baseline that may understate risk during volatile periods.</p>
+        </div>`;
+    }
+
+    function renderResumeResponse(s, on) {
+      const i = s.inspectable;
+      return `
+        <div class="response">
+          <p>${inspectableHtml('For a first PM role, your resume should read like evidence of product judgment — not a list of every job task.', i[0], on)} The goal is to make a hiring manager believe you can own ambiguous problems and ship with users in mind.</p>
+          <h3>What to cut or compress</h3>
+          <p>${inspectableHtml('Long descriptions of responsibilities without outcomes are the first things to trim.', i[1], on)} If a bullet could apply to any business graduate, it is probably too generic for PM. Keep adjacent experience only when you reframe it around decisions, users, or metrics.</p>
+          <h3>What to strengthen</h3>
+          <p>${inspectableHtml('Lead bullets with verbs like prioritized, shipped, tested, scoped, and measured — and tie them to a user or business result where you can.', i[2], on)} One strong line about a feature, experiment, or launch beats three lines about "supporting cross-functional initiatives."</p>
+          <h3>How to reframe</h3>
+          <p>${inspectableHtml('Where you lack a PM title, show the product work inside the role: problem, option you chose, what shipped, what you learned.', i[3], on)} ${inspectableHtml('Add numbers only where they are defensible — scope (users, revenue), lift, cycle time, or adoption — rather than padding every line.', i[4], on)}</p>
+        </div>`;
+    }
+
+    function renderScenarioResponse(s, on) {
+      const sc = scenarios[state.scenarioId];
+      if (state.scenarioId === 'career') return renderCareerResponse(sc, on);
+      if (state.scenarioId === 'finance') return renderFinanceResponse(sc, on);
+      return renderResumeResponse(sc, on);
+    }
+
+    function renderCandorSections(mobile, showReflection = !mobile) {
+      const s = scenarios[state.scenarioId];
+      const collapsible = mobile ? ' collapsible-section' : '';
+      const collapsedClass = mobile ? '' : '';
+
+      const assumptions = s.assumptions.map(a => {
+        const m = confidenceMeta[a.level];
+        const isOpen = state.openAssumptionId === a.id;
+        return `<div class="assumption-card${isOpen ? ' open' : ''}" data-id="${a.id}">
+          <button type="button" class="assumption-btn" onclick="toggleAssumption('${a.id}')" aria-expanded="${isOpen}">
+            <span class="legend-dot" style="background:${m.dot}"></span>
+            <span class="assumption-title">${esc(a.title)}</span>
+            <span class="assumption-level" style="color:${m.text}">${m.label}</span>
+            <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8780" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="assumption-detail-wrap">
+            <div class="assumption-detail-inner">
+              <div class="assumption-detail">
+                <div class="block"><h5>Assumption</h5><p>${esc(a.detail)}</p></div>
+                <div class="block"><h5>Why it matters</h5><p>${esc(a.whyMatters)}</p></div>
+                <div class="block"><h5>How it influenced the answer</h5><p>${esc(a.influencedAnswer)}</p></div>
+                <div class="block"><h5>What changes if the assumption is wrong</h5><p>${esc(a.ifWrong)}</p></div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      const couldChips = s.couldChange.map(c => `
+        <button type="button" class="could-chip" onclick="selectCould('${c.id}')">${esc(c.title)}</button>
+      `).join('');
+
+      const selected = s.couldChange.find(c => c.id === state.selectedCould);
+      const couldDetail = selected ? `
+        <div class="could-detail visible">
+          <div style="flex:1">
+            <p style="font-weight:600;color:var(--text);margin-bottom:6px">${esc(selected.title)}</p>
+            <p>${esc(selected.explanation)}</p>
+          </div>
+          <button type="button" class="icon-btn" style="width:28px;height:28px" onclick="selectCould(null)" aria-label="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>` : '';
+
+      const reflection = `
+        <div class="reflection" id="reflectionBlock">
+          <p>Did this change your confidence in the answer?</p>
+          <div class="reflection-btns">
+            ${['more', 'less', 'same'].map(id => {
+              const labels = { more: 'More confident', less: 'Less confident', same: 'No change' };
+              return `<button type="button" class="${state.reflection === id ? 'selected' : ''}" onclick="setReflection('${id}')">${labels[id]}</button>`;
+            }).join('')}
+          </div>
+          <p class="reflection-thanks ${state.reflection ? 'visible' : ''}">Thank you for the feedback.</p>
+        </div>`;
+
+      return `
+        <div class="candor-shell">
+        <div class="candor-head">
+          <div>
+            <h2><span class="intro-dot"></span> Candor</h2>
+            <p class="sub">Helping you evaluate this response</p>
+          </div>
+          ${mobile ? `<button type="button" class="icon-btn" onclick="closeCandor()" aria-label="Close Candor"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` : ''}
+        </div>
+        <div class="candor-body scroll-container">
+          <div class="candor-section${collapsedClass}">
+            <button type="button" class="candor-section-toggle" onclick="toggleSection(this)" ${mobile ? '' : 'disabled style="cursor:default"'}>
+              <h4>How I Approached This ${mobile ? '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>' : ''}</h4>
+            </button>
+            <div class="section-content">
+              <ul class="approach-list">${s.approach.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+            </div>
+          </div>
+          <div class="candor-section">
+            <button type="button" onclick="toggleSection(this)" ${mobile ? '' : 'disabled style="cursor:default"'}>
+              <h4>Assumptions I Made ${mobile ? '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>' : ''}</h4>
+            </button>
+            <div class="section-content">${assumptions}</div>
+          </div>
+          <div class="candor-section">
+            <button type="button" onclick="toggleSection(this)" ${mobile ? '' : 'disabled style="cursor:default"'}>
+              <h4>What Could Change This Answer? ${mobile ? '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>' : ''}</h4>
+            </button>
+            <div class="section-content">
+              <div class="could-grid">${couldChips}</div>
+              ${couldDetail}
+            </div>
+          </div>
+          <div class="candor-section">
+            <button type="button" onclick="toggleSection(this)" ${mobile ? '' : 'disabled style="cursor:default"'}>
+              <h4>What I Didn't Cover ${mobile ? '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>' : ''}</h4>
+            </button>
+            <div class="section-content">
+              <ul class="approach-list">${s.notCovered.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+            </div>
+          </div>
+          <div class="candor-section">
+            <button type="button" onclick="toggleSection(this)" ${mobile ? '' : 'disabled style="cursor:default"'}>
+              <h4>Ask Yourself ${mobile ? '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>' : ''}</h4>
+            </button>
+            <div class="section-content">
+              <ul class="ask-list">${s.askYourself.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+            </div>
+          </div>
+          ${showReflection ? reflection : ''}
+        </div>
+        </div>`;
+    }
+
+    function renderChat() {
+      const s = scenarios[state.scenarioId];
+      const on = candorEnabled();
+      const bp = getBreakpoint();
+
+      if (on && !state.introSeen[state.scenarioId]) state.showIntro = true;
+
+      let intro = '';
+      if (on && state.showIntro) {
+        intro = `
+          <div class="candor-intro" id="candorIntro">
+            <div style="display:flex;justify-content:space-between;gap:12px">
+              <div>
+                <h3><span class="intro-dot"></span> What is Candor?</h3>
+                <p>Candor helps you evaluate AI outputs by surfacing assumptions, uncertainty, and reasoning structure. It does not tell you what to trust.</p>
+              </div>
+              <button type="button" class="icon-btn" onclick="dismissIntro()" aria-label="Dismiss" style="width:32px;height:32px;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <button type="button" class="intro-dismiss" onclick="dismissIntro()">Got it</button>
+          </div>`;
+      }
+
+      let legend = '';
+      if (on) {
+        legend = `
+          <div class="confidence-legend">
+            <p>Inspect this answer</p>
+            <div class="legend-row">
+              ${Object.entries(confidenceMeta).map(([k, m]) => `
+                <div class="legend-item"><span class="legend-dot" style="background:${m.dot}"></span>${m.label}</div>
+              `).join('')}
+            </div>
+            <p class="legend-hint">Hover or tap highlighted sentences to understand how this answer was constructed.</p>
+          </div>`;
+      }
+
+      const response = renderScenarioResponse(s, on);
+
+      document.getElementById('chatArticle').innerHTML = `
+        <div class="user-bubble-wrap"><div class="user-bubble">${esc(s.userPrompt)}</div></div>
+        ${intro}
+        ${legend}
+        ${response}`;
+
+      const narrow = bp.isDesktop && state.candorOn;
+      document.getElementById('chatInner').classList.toggle('narrow', narrow);
+      document.getElementById('inputInner').classList.toggle('narrow', narrow);
+
+      bindInspectable();
+    }
+
+    function renderHeader() {
+      const s = scenarios[state.scenarioId];
+      const bp = getBreakpoint();
+      const on = candorEnabled();
+
+      const showSidebarInHeader = bp.isDesktop ? state.sidebarCollapsed : !state.navOpen;
+
+      document.getElementById('chatHeader').innerHTML = `
+        <div class="header-left">
+          ${showSidebarInHeader ? `
+          <button type="button" class="icon-btn" onclick="toggleSidebar()" aria-label="Show sidebar">
+            ${panelLeftIcon(16)}
+          </button>` : ''}
+          <div class="scenario-wrap">
+            <button type="button" class="scenario-btn" onclick="toggleScenarioMenu()">
+              <span>${esc(bp.isMobile ? s.shortTitle : s.title)}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a09a" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="scenario-menu ${state.showScenarios ? 'open' : ''}" id="scenarioMenu">
+              ${Object.values(scenarios).map(sc => `
+                <button type="button" class="scenario-option ${sc.id === state.scenarioId ? 'active' : ''}" onclick="setScenario('${sc.id}')">
+                  <div class="title">${esc(sc.title)}</div>
+                  <div class="prompt">${esc(sc.userPrompt)}</div>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="plan-banner ${bp.isDesktop ? 'visible-desktop' : ''}" style="${bp.isDesktop ? '' : 'display:none!important'}">
+          <span style="color:var(--text-muted)">Free plan</span>
+          <span style="color:var(--text-faint)">·</span>
+          <button type="button" class="upgrade">Upgrade</button>
+          <button type="button" class="icon-btn" style="width:20px;height:20px;margin-left:4px" aria-label="Dismiss">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="header-right">
+          ${DeviceSwitcher.render()}
+          <button type="button" class="candor-toggle ${on ? 'on' : ''}" onclick="toggleCandor()" aria-pressed="${on}">
+            <span class="dot"></span>
+            <span class="label">Candor</span>
+            <span class="toggle-track"><span class="toggle-knob"></span></span>
+          </button>
+          <button type="button" class="share-btn">Share</button>
+        </div>`;
+
+      document.getElementById('scenarioBackdrop').classList.toggle('open', state.showScenarios);
+    }
+
+    function renderCandorSurfaces() {
+      const bp = getBreakpoint();
+      const panel = document.getElementById('candorPanel');
+      const drawer = document.getElementById('candorDrawer');
+      const sheetWrap = document.getElementById('sheetWrap');
+      const sheet = document.getElementById('bottomSheet');
+
+      if (bp.isDesktop) {
+        panel.classList.toggle('open', state.candorOn);
+        document.getElementById('candorPanelContent').innerHTML = renderCandorSections(false);
+      }
+
+      if (bp.isTablet) {
+        drawer.classList.toggle('open', state.drawerOpen);
+        document.getElementById('drawerOverlay').classList.toggle('visible', state.drawerOpen);
+        document.getElementById('candorDrawerContent').innerHTML = renderCandorSections(true, false);
+      }
+
+      if (bp.isMobile) {
+        sheetWrap.classList.toggle('open', state.sheetOpen);
+        document.getElementById('sheetOverlay').classList.toggle('visible', state.sheetOpen);
+        sheet.classList.toggle('expanded', state.sheetExpanded);
+        document.getElementById('sheetContent').innerHTML = renderCandorSections(true, true);
+      }
+
+      document.getElementById('desktopSidebar').classList.toggle('is-collapsed', state.sidebarCollapsed || !bp.isDesktop);
+      document.getElementById('navDrawer').classList.toggle('open', state.navOpen);
+      document.getElementById('navOverlay').classList.toggle('visible', state.navOpen);
+    }
+
+    function applyDeviceBodyClass() {
+      document.body.classList.toggle('demo-desktop', isDesktopDemo());
+      document.body.classList.toggle('demo-mobile', !isDesktopDemo());
+      document.getElementById('mobileDemoRoot').hidden = isDesktopDemo();
+    }
+
+    function renderMobileChat() {
+      const s = scenarios[state.scenarioId];
+      const on = state.mobileInspectOn;
+      let intro = '';
+      if (on && !state.introSeen[state.scenarioId] && state.showIntro) {
+        intro = `
+          <div class="candor-intro">
+            <h3><span class="intro-dot"></span> What is Candor?</h3>
+            <p style="margin-top:8px">Candor helps you evaluate AI outputs by surfacing assumptions, uncertainty, and reasoning structure. It does not tell you what to trust.</p>
+            <button type="button" class="intro-dismiss" onclick="dismissIntro()">Got it</button>
+          </div>`;
+      }
+      let legend = '';
+      if (on) {
+        legend = `
+          <div class="confidence-legend">
+            <p>Inspect this answer</p>
+            <div class="legend-row">
+              ${Object.entries(confidenceMeta).map(([, m]) => `
+                <div class="legend-item"><span class="legend-dot" style="background:${m.dot}"></span>${m.label}</div>
+              `).join('')}
+            </div>
+            <p class="legend-hint">Tap highlighted sentences to see why each label was assigned.</p>
+          </div>`;
+      }
+      const response = renderScenarioResponse(s, on);
+      const entry = `
+        <div class="m-candor-entry">
+          <button type="button" class="m-candor-pill" onclick="openMobileCandor()">
+            <span class="spark">✨</span> Inspect with Candor
+          </button>
+        </div>`;
+      return `
+        <div class="user-bubble-wrap"><div class="user-bubble">${esc(s.userPrompt)}</div></div>
+        ${intro}
+        ${legend}
+        ${response}
+        ${entry}`;
+    }
+
+    function renderMobileDemo() {
+      const s = scenarios[state.scenarioId];
+      document.getElementById('mobileScreen').innerHTML = `
+        <div class="m-nav-overlay ${state.mobileNavOpen ? 'open' : ''}" onclick="toggleMobileNav(false)"></div>
+        <div class="m-nav-drawer ${state.mobileNavOpen ? 'open' : ''}">
+          ${renderSidebarHtml()}
+        </div>
+        <header class="m-header">
+          <div class="m-header-left">
+            <button type="button" class="m-hamburger" onclick="toggleMobileNav(true)" aria-label="Open menu">
+              <span></span><span></span><span></span>
+            </button>
+            <span class="m-logo">Claude</span>
+          </div>
+          <div class="m-profile" aria-hidden="true">◎</div>
+        </header>
+        <div class="m-pro-banner">
+          <span>Get more with Claude Pro</span>
+          <button type="button" class="upgrade-link">Upgrade</button>
+        </div>
+        <div class="m-scenario-bar">
+          ${Object.values(scenarios).map((sc) => `
+            <button type="button" class="m-scenario-chip ${sc.id === state.scenarioId ? 'active' : ''}" onclick="setScenario('${sc.id}')">${esc(sc.shortTitle)}</button>
+          `).join('')}
+        </div>
+        <div class="m-chat-scroll scroll-container" id="mobileChatScroll">${renderMobileChat()}</div>
+        <div class="m-composer-wrap">
+          <div class="m-composer">
+            <input type="text" placeholder="Chat with Claude" readonly />
+            <div class="m-composer-actions">
+              <button type="button" class="plus-btn" aria-label="Add"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+              <div style="display:flex;align-items:center">
+                <button type="button" class="m-model-pill">Sonnet 4.6 <span style="color:var(--text-faint)">Max</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8780" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+              </div>
+              <div class="m-composer-right">
+                <button type="button" class="icon-btn" style="width:32px;height:32px" aria-label="Voice">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                </button>
+                <button type="button" style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center" aria-label="Audio">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1f1e1d" stroke-width="2"><path d="M4 12v4M8 8v8M12 4v16M16 8v8M20 12v4"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        ${MobileCandorSheet.render()}`;
+      bindMobileInspectable();
+      document.getElementById('demoSwitcherHost').innerHTML = DeviceSwitcher.render();
+    }
+
+    function render() {
+      applyDeviceBodyClass();
+      hideInspectTooltip();
+      MobileConfidenceCard.hide();
+
+      if (!isDesktopDemo()) {
+        if (!state.introSeen[state.scenarioId] && state.mobileInspectOn) state.showIntro = true;
+        renderMobileDemo();
+        return;
+      }
+
+      document.getElementById('sidebarContent').innerHTML = renderSidebarHtml();
+      document.getElementById('navDrawerContent').innerHTML = renderSidebarHtml();
+      renderHeader();
+      renderChat();
+      renderCandorSurfaces();
+    }
+
+    function setDeviceMode(mode) {
+      state.deviceMode = mode;
+      state.showDeviceMenu = false;
+      hideInspectTooltip();
+      MobileConfidenceCard.hide();
+      if (mode === 'mobile') {
+        state.mobileSheetState = 'closed';
+        state.mobileInspectOn = false;
+        state.showIntro = false;
+      }
+      render();
+    }
+
+    function toggleDeviceMenu(e) {
+      e.stopPropagation();
+      state.showDeviceMenu = !state.showDeviceMenu;
+      if (isDesktopDemo()) renderHeader();
+      else document.getElementById('demoSwitcherHost').innerHTML = DeviceSwitcher.render();
+    }
+
+    function setMobileSheetState(next) {
+      state.mobileSheetState = next;
+      if (next === 'closed') {
+        state.mobileInspectOn = false;
+        state.mobileOpenSectionId = null;
+        state.showIntro = false;
+      } else {
+        state.mobileInspectOn = true;
+        if (!state.introSeen[state.scenarioId]) state.showIntro = true;
+      }
+      if (isDesktopDemo()) return;
+      renderMobileDemo();
+    }
+
+    function openMobileCandor() {
+      state.mobileInspectOn = true;
+      if (!state.introSeen[state.scenarioId]) state.showIntro = true;
+      if (state.mobileSheetState === 'closed') setMobileSheetState('half');
+      else renderMobileDemo();
+    }
+
+    function cycleMobileSheetState() {
+      const order = ['closed', 'collapsed', 'half', 'full'];
+      const i = order.indexOf(state.mobileSheetState);
+      setMobileSheetState(order[(i + 1) % order.length]);
+    }
+
+    function toggleMobileNav(open) {
+      state.mobileNavOpen = open;
+      if (!isDesktopDemo()) renderMobileDemo();
+    }
+
+    function toggleMobileSection(id) {
+      state.mobileOpenSectionId = state.mobileOpenSectionId === id ? null : id;
+      if (!isDesktopDemo()) renderMobileDemo();
+    }
+
+    function toggleMobileAssumption(id) {
+      state.mobileOpenAssumptionId = state.mobileOpenAssumptionId === id ? null : id;
+      if (!isDesktopDemo()) renderMobileDemo();
+    }
+
+    function toggleMobileCould(id) {
+      state.mobileOpenCouldId = state.mobileOpenCouldId === id ? null : id;
+      if (!isDesktopDemo()) renderMobileDemo();
+    }
+
+    function toggleMobileAsk(id) {
+      state.mobileOpenAskId = state.mobileOpenAskId === id ? null : id;
+      if (!isDesktopDemo()) renderMobileDemo();
+    }
+
+    function bindMobileInspectable() {
+      document.querySelectorAll('#mobileScreen .inspectable').forEach((el) => {
+        el.replaceWith(el.cloneNode(true));
+      });
+      document.querySelectorAll('#mobileScreen .inspectable').forEach((el) => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!state.mobileInspectOn) return;
+          if (el.classList.contains('open')) MobileConfidenceCard.hide();
+          else MobileConfidenceCard.show(el);
+        });
+      });
+      const scrollEl = document.getElementById('mobileChatScroll');
+      if (scrollEl) scrollEl.addEventListener('scroll', () => MobileConfidenceCard.hide(), { passive: true });
+    }
+
+    function bindInspectable() {
+      if (!isDesktopDemo()) return;
+      const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      document.querySelectorAll('.inspectable').forEach((el) => {
+        el.replaceWith(el.cloneNode(true));
+      });
+      document.querySelectorAll('.inspectable').forEach((el) => {
+        if (canHover) {
+          el.addEventListener('mouseenter', () => showInspectTooltip(el));
+          el.addEventListener('mouseleave', hideInspectTooltip);
+          el.addEventListener('focus', () => showInspectTooltip(el));
+          el.addEventListener('blur', hideInspectTooltip);
+        } else {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (el.classList.contains('open')) hideInspectTooltip();
+            else showInspectTooltip(el);
+          });
+        }
+      });
+    }
+
+    function toggleCandor() {
+      if (!isDesktopDemo()) {
+        openMobileCandor();
+        return;
+      }
+      state.candorOn = !state.candorOn;
+      if (candorEnabled() && !state.introSeen[state.scenarioId]) state.showIntro = true;
+      render();
+    }
+
+    function closeCandor() {
+      if (!isDesktopDemo()) {
+        setMobileSheetState('closed');
+        return;
+      }
+      state.candorOn = false;
+      render();
+    }
+
+    function toggleSidebar() {
+      if (!isDesktopDemo()) {
+        toggleMobileNav(false);
+        return;
+      }
+      state.sidebarCollapsed = !state.sidebarCollapsed;
+      render();
+    }
+
+    function dismissIntro() {
+      state.showIntro = false;
+      state.introSeen[state.scenarioId] = true;
+      render();
+    }
+
+    function toggleScenarioMenu() {
+      state.showScenarios = !state.showScenarios;
+      renderHeader();
+    }
+
+    function setScenario(id) {
+      state.scenarioId = id;
+      state.showScenarios = false;
+      state.selectedCould = null;
+      state.openAssumptionId = null;
+      state.mobileOpenAssumptionId = null;
+      state.mobileOpenSectionId = null;
+      state.mobileOpenCouldId = null;
+      state.mobileOpenAskId = null;
+      state.showIntro = false;
+      hideInspectTooltip();
+      MobileConfidenceCard.hide();
+      render();
+    }
+
+    function toggleAssumption(id) {
+      state.openAssumptionId = state.openAssumptionId === id ? null : id;
+      renderCandorSurfaces();
+    }
+
+    function selectCould(id) {
+      state.selectedCould = state.selectedCould === id ? null : id;
+      renderCandorSurfaces();
+    }
+
+    function setReflection(id) {
+      state.reflection = id;
+      if (isDesktopDemo()) renderCandorSurfaces();
+      else renderMobileDemo();
+    }
+
+    function toggleSection(btn) {
+      const section = btn.closest('.candor-section');
+      if (section) section.classList.toggle('collapsed');
+    }
+
+    document.getElementById('navOverlay').addEventListener('click', () => { state.navOpen = false; render(); });
+    document.getElementById('drawerOverlay').addEventListener('click', closeCandor);
+    document.getElementById('sheetOverlay').addEventListener('click', closeCandor);
+    document.getElementById('scenarioBackdrop').addEventListener('click', () => { state.showScenarios = false; renderHeader(); });
+
+    document.getElementById('sheetHandle').addEventListener('click', () => {
+      state.sheetExpanded = !state.sheetExpanded;
+      document.getElementById('bottomSheet').classList.toggle('expanded', state.sheetExpanded);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.inspectable') && !e.target.closest('#inspectTooltip')) {
+        hideInspectTooltip();
+      }
+      if (!e.target.closest('.device-switcher-wrap')) {
+        if (state.showDeviceMenu) {
+          state.showDeviceMenu = false;
+          if (isDesktopDemo()) renderHeader();
+          else document.getElementById('demoSwitcherHost').innerHTML = DeviceSwitcher.render();
+        }
+      }
+      if (!isDesktopDemo() && !e.target.closest('.inspectable') && !e.target.closest('#mobileConfidenceCard')) {
+        MobileConfidenceCard.hide();
+      }
+    });
+    document.getElementById('chatScroll').addEventListener('scroll', hideInspectTooltip, { passive: true });
+
+    document.addEventListener('click', (e) => {
+      const handle = e.target.closest('#mobileSheetHandle');
+      if (handle) {
+        e.preventDefault();
+        cycleMobileSheetState();
+      }
+    });
+
+    enrichScenarios();
+    initFromUrl();
+    render();
+  </script>
+</body>
+</html>
