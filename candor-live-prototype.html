@@ -2245,7 +2245,7 @@ Rules:
 
     async function callCandorAPI(userPrompt) {
   // Point this to your new secure local backend
-  const endpoint = `http://localhost:3000/api/candor`;
+  const endpoint = `https://candor-prototype.onrender.com/api/candor`;
   
   const res = await fetch(endpoint, {
     method: 'POST',
